@@ -31,7 +31,7 @@ except Exception:
     DOCX_AVAILABLE = False
 
 # =========================================================
-# STYLE
+# STYLE (baseado no test_CalebEvolution)
 # =========================================================
 st.markdown("""
 <style>
@@ -56,6 +56,7 @@ st.markdown("""
 .cmp-cell{flex:1;}
 .cc-tag{font-size:10px;font-weight:700;margin-bottom:2px;}
 .cc-val{font-size:21px;font-weight:700;color:#f1f5f9;line-height:1.15;}
+.cc-arrow{font-size:11px;font-weight:700;color:#10b981;margin-left:4px;vertical-align:middle;}
 .cc-sub{font-size:9px;color:#64748b;margin-top:3px;}
 .cmp-sep{width:1px;background:rgba(255,255,255,.10);min-height:40px;flex-shrink:0;margin-top:18px;}
 .row-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:8px 0 6px 0;}
@@ -75,23 +76,27 @@ GOAL_X = 120.0
 GOAL_Y = 40.0
 
 FIG_W, FIG_H = 7.0, 4.7
-FIG_DPI = 170
+FIG_DPI = 180
 
 COLOR_SUCCESS = "#c8c8c8"
 COLOR_PROGRESSIVE = "#2F80ED"
 COLOR_FAIL = "#E07070"
 COLOR_SWITCH = "#DAA520"
-ALPHA_SUCCESS = 0.08
+ALPHA_SUCCESS = 0.07
 
 C_BLUE = "#2F80ED"
 C_GREEN = "#10b981"
 C_AMBER = "#f59e0b"
+
+C_GAME = "#f87171"
+C_TOTAL = "#60a5fa"
 
 CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a", "#f97316", "#b91c1c"])
 NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 
 NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
+LATERAL_MIN_DIST = 12.0
 
 # =========================================================
 # BASE PASSES (Dev-SGA/Hudson_Passes_GACup/app.py)
@@ -266,7 +271,7 @@ def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
         return "forward"
     if angle_deg >= 135.0:
         return "backward"
-    if dist > 12.0:
+    if dist > LATERAL_MIN_DIST:
         return "lateral_right" if dy > 0 else "lateral_left"
     return "forward" if dx >= 0 else "backward"
 
@@ -312,24 +317,15 @@ def xt_value(x, y):
 # =========================================================
 def read_docx_text(docx_path: Path) -> str:
     if not DOCX_AVAILABLE:
-        raise RuntimeError("python-docx não está instalado. Adicione no requirements.txt: python-docx")
+        raise RuntimeError("python-docx não está instalado. Adicione 'python-docx' no requirements.txt.")
     doc = Document(str(docx_path))
-    text = "\n".join(p.text for p in doc.paragraphs if p.text and p.text.strip())
-    return text
+    return "\n".join(p.text for p in doc.paragraphs if p.text and p.text.strip())
 
 def parse_docx_events(raw_text: str) -> dict:
-    """
-    Parse dos blocos:
-      Vs Nome Jogo
-      Sucesso
-      Seta n: (x1, y1) -> (x2, y2)
-      Errado / Errados
-      Seta ...
-    """
     lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
     matches = {}
     current_match = None
-    current_state = None  # "PASS WON" / "PASS LOST"
+    current_state = None
 
     re_match = re.compile(r"^Vs\s+(.+)$", re.IGNORECASE)
     re_success = re.compile(r"^Sucesso$", re.IGNORECASE)
@@ -362,9 +358,6 @@ def parse_docx_events(raw_text: str) -> dict:
 
     return {k: v for k, v in matches.items() if len(v) > 0}
 
-# =========================================================
-# DATA LOADING
-# =========================================================
 def load_docx_matches(docx_filename="Passes - Hudson Cicala.docx") -> dict:
     p = Path(docx_filename)
     if not p.exists():
@@ -372,6 +365,9 @@ def load_docx_matches(docx_filename="Passes - Hudson Cicala.docx") -> dict:
     txt = read_docx_text(p)
     return parse_docx_events(txt)
 
+# =========================================================
+# DATA LOADING
+# =========================================================
 docx_matches_data = {}
 docx_error = None
 try:
@@ -379,17 +375,14 @@ try:
 except Exception as e:
     docx_error = str(e)
 
-# junta DOCX + GACup
 combined_matches_data = {}
-combined_matches_data.update(BASE_MATCHES_DATA)  # base sempre entra
-for k, v in docx_matches_data.items():           # docx entra também
-    name = k
-    if name in combined_matches_data:
-        name = f"DOCX - {name}"
+combined_matches_data.update(BASE_MATCHES_DATA)
+for k, v in docx_matches_data.items():
+    name = k if k not in combined_matches_data else f"DOCX - {k}"
     combined_matches_data[name] = v
 
 if len(combined_matches_data) == 0:
-    st.error("Não foi possível carregar dados de passes (nem base GACup, nem DOCX).")
+    st.error("Não foi possível carregar dados.")
     st.stop()
 
 # =========================================================
@@ -496,7 +489,83 @@ def compute_stats(df: pd.DataFrame) -> dict:
     }
 
 # =========================================================
-# DRAW
+# UI HELPERS (com correção de seta)
+# =========================================================
+def _safe_pct_diff(a: float, b: float) -> float:
+    base = max(abs(b), 1.0)
+    pct = (abs(a - b) / base) * 100.0
+    return min(pct, 999.0)
+
+def _arrow_html(val_game: float, val_total: float) -> tuple[str, str]:
+    game_a = total_a = ""
+    if np.isclose(val_game, val_total, atol=1e-9):
+        return game_a, total_a
+    if abs(val_game) < 1 and abs(val_total) < 1:
+        return game_a, total_a
+    if abs(val_game) < 5 and abs(val_total) < 5:
+        return game_a, total_a
+
+    if val_game > val_total:
+        pct = _safe_pct_diff(val_game, val_total)
+        game_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
+    else:
+        pct = _safe_pct_diff(val_total, val_game)
+        total_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
+    return game_a, total_a
+
+def cmp_box(
+    label,
+    val_game,
+    val_total,
+    disp_game=None,
+    disp_total=None,
+    sub_game="",
+    sub_total="",
+    border="#3b82f6",
+    show_arrow=True
+):
+    disp_game = str(val_game) if disp_game is None else disp_game
+    disp_total = str(val_total) if disp_total is None else disp_total
+
+    game_a, total_a = _arrow_html(float(val_game), float(val_total)) if show_arrow else ("", "")
+
+    sub_game_html = f'<div class="cc-sub">{sub_game}</div>' if sub_game else ""
+    sub_total_html = f'<div class="cc-sub">{sub_total}</div>' if sub_total else ""
+
+    html = (
+        f'<div class="cmp-box" style="border-left:3px solid {border};">'
+        f'<div class="cmp-label">{label}</div>'
+        f'<div class="cmp-row">'
+        f'<div class="cmp-cell">'
+        f'<div class="cc-tag" style="color:{C_GAME};">JOGO</div>'
+        f'<div class="cc-val">{disp_game}{game_a}</div>'
+        f'{sub_game_html}'
+        f'</div>'
+        f'<div class="cmp-sep"></div>'
+        f'<div class="cmp-cell">'
+        f'<div class="cc-tag" style="color:{C_TOTAL};">TOTAL</div>'
+        f'<div class="cc-val">{disp_total}{total_a}</div>'
+        f'{sub_total_html}'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+def sec_hdr(label, color="#3b82f6"):
+    st.markdown(
+        f'<div class="sec-hdr" style="border-left:3px solid {color};color:{color};">{label}</div>',
+        unsafe_allow_html=True
+    )
+
+def row_label(text, cls="row-label-blue"):
+    st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
+
+def row_divider():
+    st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
+
+# =========================================================
+# DRAW HELPERS
 # =========================================================
 def _base_pitch(bg="#1a1a2e"):
     pitch = Pitch(pitch_type="statsbomb", pitch_color=bg, line_color="#ffffff", line_alpha=0.95)
@@ -524,7 +593,7 @@ def _save_fig(fig):
     buf.seek(0)
     return Image.open(buf)
 
-def draw_pass_map(df: pd.DataFrame):
+def draw_pass_map(df):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
         is_lost = not row["is_won"]
@@ -561,7 +630,7 @@ def draw_pass_map(df: pd.DataFrame):
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
-def draw_corridor_heatmap(df: pd.DataFrame):
+def draw_corridor_heatmap(df):
     df_s = df[df["is_won"]].copy()
     x_bins = np.linspace(0.0, FIELD_X, 7)
     corridors = {
@@ -617,7 +686,7 @@ def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
     ax.scatter(x0, y0, s=20, marker="o", facecolors="none", edgecolors=color, linewidths=1.5, zorder=5, alpha=0.85)
     ax.scatter(x1, y1, s=32, marker="o", facecolors=color, edgecolors="white", linewidths=0.9, zorder=6, alpha=0.85)
 
-def draw_top10_xt_map(df: pd.DataFrame):
+def draw_top10_xt_map(df):
     fig, ax, pitch = _base_pitch()
     top10 = (
         df[(df["is_won"]) & (df["delta_xt_adj"] > 0)]
@@ -636,60 +705,8 @@ def draw_top10_xt_map(df: pd.DataFrame):
     cbar.set_label("ΔxT", color="#ffffff", fontsize=8)
     cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
     plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
-
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
-
-# =========================================================
-# UI HELPERS
-# =========================================================
-def _arrow_html(val_sel: float, val_total: float) -> tuple[str, str]:
-    sel_a = total_a = ""
-    if val_sel == val_total or val_sel == 0 or val_total == 0:
-        return sel_a, total_a
-    if val_sel > val_total:
-        pct = (val_sel - val_total) / abs(val_total) * 100
-        sel_a = f'<span style="font-size:11px;font-weight:700;color:#10b981;margin-left:4px;">↑ {pct:.0f}%</span>'
-    else:
-        pct = (val_total - val_sel) / abs(val_sel) * 100
-        total_a = f'<span style="font-size:11px;font-weight:700;color:#10b981;margin-left:4px;">↑ {pct:.0f}%</span>'
-    return sel_a, total_a
-
-def cmp_box(label, val_sel, val_total, disp_sel=None, disp_total=None, sub_sel="", sub_total="", border="#3b82f6"):
-    disp_sel = str(val_sel) if disp_sel is None else disp_sel
-    disp_total = str(val_total) if disp_total is None else disp_total
-    sel_a, total_a = _arrow_html(float(val_sel), float(val_total))
-    sub_sel_html = f'<div class="cc-sub">{sub_sel}</div>' if sub_sel else ""
-    sub_total_html = f'<div class="cc-sub">{sub_total}</div>' if sub_total else ""
-
-    html = f"""
-    <div class="cmp-box" style="border-left:3px solid {border};">
-      <div class="cmp-label">{label}</div>
-      <div class="cmp-row">
-        <div class="cmp-cell">
-          <div class="cc-tag" style="color:#f87171;">JOGO</div>
-          <div class="cc-val">{disp_sel}{sel_a}</div>
-          {sub_sel_html}
-        </div>
-        <div class="cmp-sep"></div>
-        <div class="cmp-cell">
-          <div class="cc-tag" style="color:#60a5fa;">TOTAL</div>
-          <div class="cc-val">{disp_total}{total_a}</div>
-          {sub_total_html}
-        </div>
-      </div>
-    </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
-
-def sec_hdr(label, color="#3b82f6"):
-    st.markdown(
-        f'<div class="sec-hdr" style="border-left:3px solid {color};color:{color};">{label}</div>',
-        unsafe_allow_html=True
-    )
-
-def row_label(text, cls="row-label-blue"):
-    st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
 
 # =========================================================
 # SIDEBAR
@@ -714,7 +731,7 @@ pass_filter = st.sidebar.radio(
 
 show_table = st.sidebar.checkbox("Mostrar tabela de eventos", value=False)
 
-def apply_filter(df: pd.DataFrame) -> pd.DataFrame:
+def apply_filter(df):
     if pass_filter == "Certos":
         return df[df["is_won"]].copy()
     if pass_filter == "Errados":
@@ -727,20 +744,20 @@ def apply_filter(df: pd.DataFrame) -> pd.DataFrame:
         return df[df["switch"]].copy()
     return df.copy()
 
-df_match = apply_filter(dfs_by_match[selected_match].copy())
+df_game = apply_filter(dfs_by_match[selected_match].copy())
 df_total = apply_filter(df_all.copy())
 
-s_match = compute_stats(df_match)
+s_game = compute_stats(df_game)
 s_total = compute_stats(df_total)
 
 # =========================================================
 # PRE-RENDER
 # =========================================================
-img_pm_match, fig_pm_match = draw_pass_map(df_match); plt.close(fig_pm_match)
+img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
 img_pm_total, fig_pm_total = draw_pass_map(df_total); plt.close(fig_pm_total)
-img_ht_match, fig_ht_match = draw_corridor_heatmap(df_match); plt.close(fig_ht_match)
+img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
 img_ht_total, fig_ht_total = draw_corridor_heatmap(df_total); plt.close(fig_ht_total)
-img_xt_match, fig_xt_match = draw_top10_xt_map(df_match); plt.close(fig_xt_match)
+img_xt_game, fig_xt_game = draw_top10_xt_map(df_game); plt.close(fig_xt_game)
 img_xt_total, fig_xt_total = draw_top10_xt_map(df_total); plt.close(fig_xt_total)
 
 # =========================================================
@@ -750,10 +767,10 @@ st.caption("Comparativo automático: Jogo selecionado vs Total de passes (DOCX +
 
 col_l, col_r, col_s = st.columns([1, 1, 1], gap="medium")
 
-# Row 1
+# ROW 1
 with col_l:
     row_label(f"🟦 Pass Map · {selected_match}", "row-label-blue")
-    st.image(img_pm_match, use_container_width=True)
+    st.image(img_pm_game, use_container_width=True)
 
 with col_r:
     row_label("🟦 Pass Map · TOTAL (DOCX + GACup)", "row-label-blue")
@@ -761,32 +778,34 @@ with col_r:
 
 with col_s:
     sec_hdr("📋 Pass Overview", C_BLUE)
-    cmp_box("Total Passes", s_match["total_passes"], s_total["total_passes"], border=C_BLUE)
+    cmp_box("Total Passes", s_game["total_passes"], s_total["total_passes"], border=C_BLUE, show_arrow=False)
     cmp_box(
         "Successful",
-        s_match["successful_passes"], s_total["successful_passes"],
-        disp_sel=f"{s_match['successful_passes']} ({s_match['accuracy_pct']:.0f}%)",
+        s_game["successful_passes"], s_total["successful_passes"],
+        disp_game=f"{s_game['successful_passes']} ({s_game['accuracy_pct']:.0f}%)",
         disp_total=f"{s_total['successful_passes']} ({s_total['accuracy_pct']:.0f}%)",
-        sub_sel=f"{s_match['unsuccessful_passes']} unsuccessful",
+        sub_game=f"{s_game['unsuccessful_passes']} unsuccessful",
         sub_total=f"{s_total['unsuccessful_passes']} unsuccessful",
-        border=C_BLUE
+        border=C_BLUE,
+        show_arrow=False
     )
     cmp_box(
         "Progressive",
-        s_match["progressive_attempted"], s_total["progressive_attempted"],
-        disp_sel=f"{s_match['progressive_successful']}/{s_match['progressive_attempted']} ({s_match['progressive_accuracy_pct']:.0f}%)",
+        s_game["progressive_attempted"], s_total["progressive_attempted"],
+        disp_game=f"{s_game['progressive_successful']}/{s_game['progressive_attempted']} ({s_game['progressive_accuracy_pct']:.0f}%)",
         disp_total=f"{s_total['progressive_successful']}/{s_total['progressive_attempted']} ({s_total['progressive_accuracy_pct']:.0f}%)",
-        border=C_BLUE
+        border=C_BLUE,
+        show_arrow=False
     )
 
-st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
+row_divider()
 
-# Row 2
+# ROW 2
 col_l2, col_r2, col_s2 = st.columns([1, 1, 1], gap="medium")
 
 with col_l2:
     row_label(f"🟩 Zone Heatmap · {selected_match}", "row-label-green")
-    st.image(img_ht_match, use_container_width=True)
+    st.image(img_ht_game, use_container_width=True)
 
 with col_r2:
     row_label("🟩 Zone Heatmap · TOTAL", "row-label-green")
@@ -796,34 +815,34 @@ with col_s2:
     sec_hdr("🧭 Direction", C_GREEN)
     cmp_box(
         "Forward",
-        s_match["fwd_pct"], s_total["fwd_pct"],
-        disp_sel=f"{s_match['fwd']} ({s_match['fwd_pct']:.0f}%)",
+        s_game["fwd_pct"], s_total["fwd_pct"],
+        disp_game=f"{s_game['fwd']} ({s_game['fwd_pct']:.0f}%)",
         disp_total=f"{s_total['fwd']} ({s_total['fwd_pct']:.0f}%)",
         border=C_GREEN
     )
     cmp_box(
         "Backward",
-        s_match["bwd_pct"], s_total["bwd_pct"],
-        disp_sel=f"{s_match['bwd']} ({s_match['bwd_pct']:.0f}%)",
+        s_game["bwd_pct"], s_total["bwd_pct"],
+        disp_game=f"{s_game['bwd']} ({s_game['bwd_pct']:.0f}%)",
         disp_total=f"{s_total['bwd']} ({s_total['bwd_pct']:.0f}%)",
         border=C_GREEN
     )
     cmp_box(
         "Lateral",
-        s_match["lat_pct"], s_total["lat_pct"],
-        disp_sel=f"{s_match['lat']} ({s_match['lat_pct']:.0f}%)",
+        s_game["lat_pct"], s_total["lat_pct"],
+        disp_game=f"{s_game['lat']} ({s_game['lat_pct']:.0f}%)",
         disp_total=f"{s_total['lat']} ({s_total['lat_pct']:.0f}%)",
         border=C_GREEN
     )
 
-st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
+row_divider()
 
-# Row 3
+# ROW 3
 col_l3, col_r3, col_s3 = st.columns([1, 1, 1], gap="medium")
 
 with col_l3:
     row_label(f"🟡 Top 10 ΔxT · {selected_match}", "row-label-amber")
-    st.image(img_xt_match, use_container_width=True)
+    st.image(img_xt_game, use_container_width=True)
 
 with col_r3:
     row_label("🟡 Top 10 ΔxT · TOTAL", "row-label-amber")
@@ -833,32 +852,32 @@ with col_s3:
     sec_hdr("⚡ xT + Tactical", C_AMBER)
     cmp_box(
         "% Positive ΔxT",
-        s_match["pos_pct"], s_total["pos_pct"],
-        disp_sel=f"{s_match['pos_pct']:.1f}%",
+        s_game["pos_pct"], s_total["pos_pct"],
+        disp_game=f"{s_game['pos_pct']:.1f}%",
         disp_total=f"{s_total['pos_pct']:.1f}%",
         border=C_AMBER
     )
     cmp_box(
         "% ΔxT > 0.1",
-        s_match["high_xt_pct"], s_total["high_xt_pct"],
-        disp_sel=f"{s_match['high_xt_pct']:.1f}%",
+        s_game["high_xt_pct"], s_total["high_xt_pct"],
+        disp_game=f"{s_game['high_xt_pct']:.1f}%",
         disp_total=f"{s_total['high_xt_pct']:.1f}%",
         border=C_AMBER
     )
     cmp_box(
         "Σ ΔxT",
-        s_match["sum_dxt"], s_total["sum_dxt"],
-        disp_sel=f"{s_match['sum_dxt']:.3f}",
+        s_game["sum_dxt"], s_total["sum_dxt"],
+        disp_game=f"{s_game['sum_dxt']:.3f}",
         disp_total=f"{s_total['sum_dxt']:.3f}",
         border=C_AMBER
     )
 
 st.caption(
-    "Grey=Completed · Blue=Progressive · Gold=Switch · Red=Incomplete · "
-    "Dashed line=Final Third · Comet=Top-10 ΔxT"
+    "Grey = Completed · Blue = Progressive · Gold = Switch · Red = Incomplete · "
+    "Dashed line = Final Third · Comet = Top-10 ΔxT"
 )
 
 if show_table:
     st.subheader(f"Eventos — {selected_match} ({pass_filter})")
     cols = ["number", "type", "x_start", "y_start", "x_end", "y_end", "progressive", "switch", "delta_xt_adj"]
-    st.dataframe(df_match[cols].reset_index(drop=True), use_container_width=True)
+    st.dataframe(df_game[cols].reset_index(drop=True), use_container_width=True)
