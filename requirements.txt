@@ -3,5 +3,5 @@ matplotlib
 mplsoccer
 pandas
 numpy
-pillow
-streamlit-image-coordinates
+Pillow
+python-docx
