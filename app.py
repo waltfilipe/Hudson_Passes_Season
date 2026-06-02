@@ -36,10 +36,7 @@ except Exception:
 #
 st.markdown("""
 <style>
-    .reportview-container { background: #0f0f1a; color: #ffffff; }
-    .sidebar .sidebar-content { background: #1a1a2e; }
-    h1, h2, h3, h4, h5, h6, p, div, span, label { color: #e2e8f0; font-family: 'Inter', sans-serif; }
-    
+    /* Mantendo apenas o estilo dos cartões de métricas e títulos das linhas para não quebrar a fonte nativa do Streamlit */
     .row-label-blue {
         font-size: 14px; font-weight: 700; color: #60a5fa;
         text-transform: uppercase; letter-spacing: 1px;
@@ -885,7 +882,8 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
 # SIDEBAR
 #
 st.sidebar.title("Pass Dashboard")
-st.sidebar.markdown("### Hudson Cicala")
+st.sidebar.markdown("### 2026 Matches")
+st.sidebar.markdown("#### Hudson Cicala")
 
 # Adiciona a imagem se existir
 img_path = "Captura de tela 2026-06-02 154425.png"
@@ -893,8 +891,6 @@ if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
 
 st.sidebar.markdown("---")
-st.sidebar.header("View Filters")
-st.sidebar.write(f"**{len(dfs_by_match)} matches collected**")
 
 all_match_names = list(dfs_by_match.keys())
 selected_match = st.sidebar.selectbox("Select Match", options=all_match_names, index=0)
