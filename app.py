@@ -15,23 +15,23 @@ from matplotlib.patches import FancyArrowPatch, Rectangle
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 import plotly.graph_objects as go
 
-# =========================================================
+# 
 # PAGE CONFIG
-# =========================================================
+# 
 st.set_page_config(layout="wide", page_title="Hudson Cicala — Pass Dashboard")
 
-# =========================================================
+# 
 # OPTIONAL DOCX IMPORT
-# =========================================================
+# 
 DOCX_AVAILABLE = True
 try:
     from docx import Document
 except Exception:
     DOCX_AVAILABLE = False
 
-# =========================================================
+# 
 # STYLE
-# =========================================================
+# 
 st.markdown("""
 <style>
     /* General background and text */
@@ -162,9 +162,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# =========================================================
+# 
 # CONSTANTS
-# =========================================================
+# 
 FIELD_X, FIELD_Y = 120.0, 80.0
 HALF_LINE_X = FIELD_X / 2
 FINAL_THIRD_LINE_X = 80.0
@@ -193,11 +193,11 @@ NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 
-# =========================================================
+# 
 # BASE PASSES
-# =========================================================
+# 
 BASE_MATCHES_DATA = {
-    "GACup - Match 1": [
+    "Vancouver Whitecaps (03-26)": [
         ("PASS WON", 26.75, 68.34, 8.97, 51.05, None),
         ("PASS WON", 31.24, 51.22, 34.57, 72.50, None),
         ("PASS WON", 36.06, 46.90, 44.37, 57.04, None),
@@ -251,7 +251,7 @@ BASE_MATCHES_DATA = {
         ("PASS LOST", 56.18, 49.48, 97.07, 62.11, None),
         ("PASS LOST", 34.23, 74.91, 65.65, 78.57, None),
     ],
-    "GACup - Match 2": [
+    "FC Dallas (03-27)": [
         ("PASS WON", 21.27, 14.23, 29.25, 31.02, None),
         ("PASS WON", 29.41, 23.38, 34.40, 64.60, None),
         ("PASS WON", 41.55, 39.67, 41.88, 6.92, None),
@@ -270,7 +270,7 @@ BASE_MATCHES_DATA = {
         ("PASS LOST", 78.62, 64.94, 96.57, 67.10, None),
         ("PASS LOST", 85.43, 68.76, 106.05, 77.74, None),
     ],
-    "GACup - Match 3": [
+    "Nagoya (03-28)": [
         ("PASS WON", 28.08, 28.53, 29.75, 8.25, None),
         ("PASS WON", 33.74, 26.54, 29.41, 43.82, None),
         ("PASS WON", 28.08, 47.15, 31.57, 64.60, None),
@@ -296,7 +296,7 @@ BASE_MATCHES_DATA = {
         ("PASS LOST", 91.75, 50.14, 109.70, 65.77, None),
         ("PASS LOST", 96.41, 56.79, 107.04, 67.26, None),
     ],
-    "GACup - Match 4": [
+    "Busan IPark (03-30)": [
         ("PASS WON", 39.39, 19.39, 52.35, 4.76, None),
         ("PASS WON", 63.82, 7.92, 72.63, 1.43, None),
         ("PASS WON", 70.47, 11.91, 80.95, 13.74, None),
@@ -325,9 +325,20 @@ BASE_MATCHES_DATA = {
     ],
 }
 
-# =========================================================
+# 
 # HELPERS
-# =========================================================
+# 
+def get_match_minutes(match_name: str) -> float:
+    """Returns the minutes played for a given match to calculate p90."""
+    name_lower = match_name.lower()
+    if "vancouver" in name_lower or "03-26" in name_lower: return 60.0
+    if "dallas" in name_lower or "03-27" in name_lower: return 60.0
+    if "nagoya" in name_lower or "03-28" in name_lower: return 60.0
+    if "busan" in name_lower or "03-30" in name_lower: return 60.0
+    if "houston" in name_lower: return 63.0
+    if "vardar" in name_lower: return 65.0
+    return 90.0
+
 def distance_to_goal(x, y):
     return np.sqrt((GOAL_X - x) ** 2 + (GOAL_Y - y) ** 2)
 
@@ -400,9 +411,9 @@ def xt_value(x, y):
     iy = int(np.clip((y / FIELD_Y) * NY_XT, 0, NY_XT - 1))
     return float(XT_GRID[iy, ix])
 
-# =========================================================
+# 
 # DOCX PARSER
-# =========================================================
+# 
 def read_docx_text(docx_path: Path) -> str:
     if not DOCX_AVAILABLE:
         raise RuntimeError("python-docx is not installed.")
@@ -447,9 +458,9 @@ def load_docx_matches(docx_filename="Passes - Hudson Cicala.docx") -> dict:
     txt = read_docx_text(p)
     return parse_docx_events(txt)
 
-# =========================================================
+# 
 # DATA LOADING
-# =========================================================
+# 
 docx_matches_data = {}
 try:
     docx_matches_data = load_docx_matches()
@@ -467,9 +478,9 @@ if len(combined_matches_data) == 0:
     st.error("Could not load data.")
     st.stop()
 
-# =========================================================
+# 
 # BUILD DATAFRAMES & REORDER MATCHES
-# =========================================================
+# 
 dfs_by_match = {}
 for match_name, events in combined_matches_data.items():
     dfm = pd.DataFrame(events, columns=["type", "x_start", "y_start", "x_end", "y_end", "video"])
@@ -506,11 +517,14 @@ if len(items) >= 18:
 
 df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
 
-# =========================================================
+# 
 # STATS & SCORES
-# =========================================================
-def compute_stats(df: pd.DataFrame) -> dict:
+# 
+def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     total = len(df)
+    mins = get_match_minutes(match_name)
+    p90_factor = 90.0 / mins if mins > 0 else 1.0
+
     if total == 0:
         return {
             "total_passes": 0, "successful_passes": 0, "unsuccessful_passes": 0, "accuracy_pct": 0.0,
@@ -519,6 +533,7 @@ def compute_stats(df: pd.DataFrame) -> dict:
             "switch_total": 0, "switch_success": 0, "switch_accuracy_pct": 0.0, "switch_pct_of_total": 0.0,
             "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
             "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
+            "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0, "minutes": mins
         }
     successful = int(df["is_won"].sum())
     unsuccessful = total - successful
@@ -563,20 +578,23 @@ def compute_stats(df: pd.DataFrame) -> dict:
         "pos_pct": round(pos_count / total * 100.0, 1),
         "high_xt_pct": round(high_xt / total * 100.0, 1),
         "sum_dxt": round(sum_dxt, 3),
+        "prog_p90": round(progressive_total * p90_factor, 2),
+        "f3_p90": round(to_final_third_success * p90_factor, 2),
+        "xt_p90": round(sum_dxt * p90_factor, 3),
+        "minutes": mins
     }
 
 def compute_match_scores(dfs_dict):
     records = []
     for m_name, df_m in dfs_dict.items():
-        s = compute_stats(df_m)
+        s = compute_stats(df_m, m_name)
         total_passes = s['total_passes']
         if total_passes == 0: continue
-        xt = s['sum_dxt']
-        prog_pct = (s['progressive_successful'] / total_passes * 100) if total_passes else 0
-        f3_pct = (s['to_final_third_success'] / total_passes * 100) if total_passes else 0
         records.append({
-            'match': m_name, 'xt': xt, 'prog_pct': prog_pct, 'f3_pct': f3_pct,
-            'prog_success': s['progressive_successful']
+            'match': m_name, 
+            'xt_p90': s['xt_p90'], 
+            'prog_p90': s['prog_p90'], 
+            'f3_p90': s['f3_p90']
         })
     df_scores = pd.DataFrame(records)
     if df_scores.empty: return df_scores
@@ -586,18 +604,20 @@ def compute_match_scores(dfs_dict):
         if s_max == s_min: return pd.Series([70.0] * len(series))
         return 50 + ((series - s_min) / (s_max - s_min)) * 40
 
-    df_scores['xt_norm'] = normalize(df_scores['xt'])
-    df_scores['prog_norm'] = normalize(df_scores['prog_pct'])
-    df_scores['f3_norm'] = normalize(df_scores['f3_pct'])
+    df_scores['xt_norm'] = normalize(df_scores['xt_p90'])
+    df_scores['prog_norm'] = normalize(df_scores['prog_p90'])
+    df_scores['f3_norm'] = normalize(df_scores['f3_p90'])
+    
+    # Weights applied to p90 metrics
     df_scores['Score'] = (df_scores['xt_norm'] * 0.50) + \
                          (df_scores['prog_norm'] * 0.25) + \
                          (df_scores['f3_norm'] * 0.25)
     df_scores['Score'] = df_scores['Score'].round(1)
     return df_scores
 
-# =========================================================
+# 
 # UI HELPERS
-# =========================================================
+# 
 def _safe_pct_diff(a: float, b: float) -> float:
     base = max(abs(b), 1.0)
     pct = (abs(a - b) / base) * 100.0
@@ -634,9 +654,9 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game=""
 def row_label(text, cls="row-label-blue"):
     st.markdown(f'<div class="{cls}">{text}</div>', unsafe_allow_html=True)
 
-# =========================================================
+# 
 # DRAW HELPERS (PITCH)
-# =========================================================
+# 
 def _base_pitch(bg="#1a1a2e"):
     pitch = Pitch(pitch_type="statsbomb", pitch_color=bg, line_color="#ffffff", line_alpha=0.95)
     fig, ax = pitch.draw(figsize=(FIG_W, FIG_H))
@@ -761,9 +781,9 @@ def draw_top10_xt_map(df):
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
 
-# =========================================================
+# 
 # PLOTLY CHARTS (Modern & Interactive)
-# =========================================================
+# 
 def draw_score_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
@@ -808,7 +828,7 @@ def draw_score_chart(df_scores):
 def draw_progressive_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
-    y = df_scores["prog_success"]
+    y = df_scores["prog_p90"]
 
     # Progressive Line (Green)
     fig.add_trace(go.Scatter(
@@ -818,8 +838,8 @@ def draw_progressive_chart(df_scores):
         marker=dict(size=8, color="#10b981"),
         fill='tozeroy',
         fillcolor='rgba(16, 185, 129, 0.05)',
-        name="Progressive Passes",
-        hovertemplate="<b>%{x}</b><br>Progressive: %{y}<extra></extra>"
+        name="Progressive Passes p90",
+        hovertemplate="<b>%{x}</b><br>Progressive p90: %{y:.1f}<extra></extra>"
     ))
     
     fig.update_layout(
@@ -830,14 +850,14 @@ def draw_progressive_chart(df_scores):
         margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Progressive Passes p90", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
 def draw_xt_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
-    y = df_scores["xt"]
+    y = df_scores["xt_p90"]
 
     # xT Line (Amber)
     fig.add_trace(go.Scatter(
@@ -847,8 +867,8 @@ def draw_xt_chart(df_scores):
         marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy',
         fillcolor='rgba(245, 158, 11, 0.05)',
-        name="Σ ΔxT",
-        hovertemplate="<b>%{x}</b><br>Σ ΔxT: %{y:.2f}<extra></extra>"
+        name="Σ ΔxT p90",
+        hovertemplate="<b>%{x}</b><br>Σ ΔxT p90: %{y:.2f}<extra></extra>"
     ))
     
     fig.update_layout(
@@ -859,13 +879,13 @@ def draw_xt_chart(df_scores):
         margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        title=dict(text="Σ ΔxT (Expected Threat)", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Σ ΔxT p90 (Expected Threat)", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
-# =========================================================
+# 
 # SIDEBAR
-# =========================================================
+# 
 st.sidebar.title("Pass Dashboard")
 st.sidebar.write(f"**{len(dfs_by_match)} matches collected**")
 st.sidebar.markdown("---")
@@ -889,20 +909,24 @@ def apply_filter(df):
     return df.copy()
 
 df_game = apply_filter(dfs_by_match[selected_match].copy())
-s_game = compute_stats(df_game)
+s_game = compute_stats(df_game, selected_match)
 
-s_total = compute_stats(df_all)
+# Calculate averages across all loaded matches
 num_matches = len(dfs_by_match)
-s_avg = s_total.copy()
-for k in ["total_passes", "successful_passes", "unsuccessful_passes",
-          "progressive_attempted", "progressive_successful",
-          "to_final_third_total", "to_final_third_success",
-          "switch_total", "switch_success", "fwd", "bwd", "lat", "sum_dxt"]:
-    s_avg[k] = s_total[k] / num_matches if num_matches > 0 else 0
+all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
+s_avg = {}
+if num_matches > 0:
+    for k in all_match_stats[0].keys():
+        if isinstance(all_match_stats[0][k], (int, float)):
+            s_avg[k] = sum(s[k] for s in all_match_stats) / num_matches
+        else:
+            s_avg[k] = 0
+else:
+    s_avg = s_game.copy()
 
-# =========================================================
+# 
 # TABS & LAYOUT
-# =========================================================
+# 
 tab_dash, tab_graf = st.tabs(["Pass Dashboard", "Charts & Analysis"])
 
 with tab_dash:
@@ -933,9 +957,10 @@ with tab_dash:
                 disp_game=f"{s_game['successful_passes']} ({s_game['accuracy_pct']:.0f}%)",
                 disp_avg=f"{s_avg['successful_passes']:.1f} ({s_avg['accuracy_pct']:.0f}%)",
                 sub_game=f"{s_game['unsuccessful_passes']} unsuccessful", border=C_BLUE)
-        cmp_box("Progressive", s_game["progressive_attempted"], s_avg["progressive_attempted"],
-                disp_game=f"{s_game['progressive_successful']}/{s_game['progressive_attempted']} ({s_game['progressive_accuracy_pct']:.0f}%)",
-                disp_avg=f"{s_avg['progressive_successful']:.1f}/{s_avg['progressive_attempted']:.1f} ({s_avg['progressive_accuracy_pct']:.0f}%)",
+        cmp_box("Progressive p90", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}",
+                disp_game=f"{s_game['prog_p90']:.1f}",
+                disp_avg=f"{s_avg['prog_p90']:.1f}",
+                sub_game=f"{s_game['progressive_successful']} total",
                 border=C_BLUE)
 
     with col_s2:
@@ -956,8 +981,8 @@ with tab_dash:
                 disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER)
         cmp_box("% ΔxT > 0.1", s_game["high_xt_pct"], s_avg["high_xt_pct"],
                 disp_game=f"{s_game['high_xt_pct']:.1f}%", disp_avg=f"{s_avg['high_xt_pct']:.1f}%", border=C_AMBER)
-        cmp_box("Σ ΔxT", s_game["sum_dxt"], s_avg["sum_dxt"],
-                disp_game=f"{s_game['sum_dxt']:.3f}", disp_avg=f"{s_avg['sum_dxt']:.3f}", border=C_AMBER)
+        cmp_box("Σ ΔxT p90", s_game["xt_p90"], f"{s_avg['xt_p90']:.3f}",
+                disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
 
 with tab_graf:
     st.markdown("### Score Evolution per Match")
@@ -965,10 +990,10 @@ with tab_graf:
     **How is the score (50 to 90) calculated?**
     We use *Min-Max Normalization* comparing each match's performance against the extremes of all loaded matches. This ensures the score reflects the player's true context.
     
-    **Weights used:**
-    - **Total xT (Expected Threat) (50% Weight):** Measures the actual danger generated by successful passes.
-    - **% Progressive Passes (25% Weight):** Measures the intent and ability to break opponent lines.
-    - **% Final Third Passes (25% Weight):** Measures territorial aggressiveness and attacking presence.
+    **Weights used (Normalized per 90 mins):**
+    - **Total xT p90 (50% Weight):** Measures the actual danger generated by successful passes.
+    - **Progressive Passes p90 (25% Weight):** Measures the intent and ability to break opponent lines.
+    - **Final Third Passes p90 (25% Weight):** Measures territorial aggressiveness and attacking presence.
     """)
 
     df_scores = compute_match_scores(dfs_by_match)
