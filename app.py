@@ -196,7 +196,7 @@ LATERAL_MIN_DIST = 12.0
 # BASE PASSES
 # 
 BASE_MATCHES_DATA = {
-    "Vancouver Whitecaps (03-26)": [
+    "Connecticut United": [
         ("PASS WON", 26.75, 68.34, 8.97, 51.05, None),
         ("PASS WON", 31.24, 51.22, 34.57, 72.50, None),
         ("PASS WON", 36.06, 46.90, 44.37, 57.04, None),
@@ -250,7 +250,7 @@ BASE_MATCHES_DATA = {
         ("PASS LOST", 56.18, 49.48, 97.07, 62.11, None),
         ("PASS LOST", 34.23, 74.91, 65.65, 78.57, None),
     ],
-    "FC Dallas (03-27)": [
+    "Nashville SC": [
         ("PASS WON", 21.27, 14.23, 29.25, 31.02, None),
         ("PASS WON", 29.41, 23.38, 34.40, 64.60, None),
         ("PASS WON", 41.55, 39.67, 41.88, 6.92, None),
@@ -269,7 +269,7 @@ BASE_MATCHES_DATA = {
         ("PASS LOST", 78.62, 64.94, 96.57, 67.10, None),
         ("PASS LOST", 85.43, 68.76, 106.05, 77.74, None),
     ],
-    "Nagoya (03-28)": [
+    "Seongnam FC": [
         ("PASS WON", 28.08, 28.53, 29.75, 8.25, None),
         ("PASS WON", 33.74, 26.54, 29.41, 43.82, None),
         ("PASS WON", 28.08, 47.15, 31.57, 64.60, None),
@@ -295,7 +295,7 @@ BASE_MATCHES_DATA = {
         ("PASS LOST", 91.75, 50.14, 109.70, 65.77, None),
         ("PASS LOST", 96.41, 56.79, 107.04, 67.26, None),
     ],
-    "Busan IPark (03-30)": [
+    "NY Red Bulls": [
         ("PASS WON", 39.39, 19.39, 52.35, 4.76, None),
         ("PASS WON", 63.82, 7.92, 72.63, 1.43, None),
         ("PASS WON", 70.47, 11.91, 80.95, 13.74, None),
@@ -330,10 +330,10 @@ BASE_MATCHES_DATA = {
 def get_match_minutes(match_name: str) -> float:
     """Returns the minutes played for a given match to calculate p90."""
     name_lower = match_name.lower()
-    if "vancouver" in name_lower or "03-26" in name_lower: return 60.0
-    if "dallas" in name_lower or "03-27" in name_lower: return 60.0
-    if "nagoya" in name_lower or "03-28" in name_lower: return 60.0
-    if "busan" in name_lower or "03-30" in name_lower: return 60.0
+    if "connecticut" in name_lower: return 60.0
+    if "nashville" in name_lower: return 60.0
+    if "seongnam" in name_lower: return 32.0
+    if "red bulls" in name_lower: return 60.0
     if "houston" in name_lower: return 63.0
     if "vardar" in name_lower: return 65.0
     return 90.0
