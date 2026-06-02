@@ -561,6 +561,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     lat = int(df["is_lateral"].sum())
 
     pos_count = int((df["is_won"] & (df["delta_xt_adj"] > 0)).sum())
+    pos_pct = (pos_count / total * 100.0) if total > 0 else 0.0
     high_xt = int((df["delta_xt_adj"] > 0.1).sum())
     sum_dxt = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
 
@@ -575,7 +576,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "fwd": fwd, "fwd_pct": round(fwd / total * 100.0, 1),
         "bwd": bwd, "bwd_pct": round(bwd / total * 100.0, 1),
         "lat": lat, "lat_pct": round(lat / total * 100.0, 1),
-        "pos_pct": round(pos_count / total * 100.0, 1),
+        "pos_pct": round(pos_pct, 1),
         "high_xt_pct": round(high_xt / total * 100.0, 1),
         "sum_dxt": round(sum_dxt, 3),
         "total_p90": round(total * p90_factor, 1),
@@ -595,7 +596,8 @@ def compute_match_scores(dfs_dict):
             'match': m_name, 
             'xt_p90': s['xt_p90'], 
             'prog_p90': s['prog_p90'], 
-            'f3_p90': s['f3_p90']
+            'f3_p90': s['f3_p90'],
+            'pos_pct': s['pos_pct']
         })
     df_scores = pd.DataFrame(records)
     if df_scores.empty: return df_scores
@@ -647,7 +649,7 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game=""
         f'{arrow}'
         f'</div>'
         f'{sub_game_html}'
-        f'<div class="metric-avg">AVG/MATCH: {disp_avg}</div>'
+        f'<div class="metric-avg">AVG: {disp_avg}</div>'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -911,6 +913,35 @@ def draw_xt_chart(df_scores):
     )
     return fig
 
+def draw_comparison_bar(title, val_first, val_last, suffix=""):
+    """Helper function to draw clean comparison bars for Evolution tab"""
+    # Color logic: Green if improved/maintained, Red if worsened
+    color_last = "#10b981" if val_last >= val_first else "#E07070"
+    
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=["First 9 Matches", "Last 9 Matches"],
+        y=[val_first, val_last],
+        marker_color=["#444466", color_last],
+        text=[f"<b>{val_first:.2f}{suffix}</b>", f"<b>{val_last:.2f}{suffix}</b>"],
+        textposition='auto',
+        width=[0.4, 0.4],
+        hovertemplate="<b>%{x}</b><br>" + title + ": %{y:.2f}" + suffix + "<extra></extra>"
+    ))
+    
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e",
+        plot_bgcolor="#1a1a2e",
+        height=250,
+        margin=dict(l=20, r=20, t=40, b=20),
+        yaxis=dict(range=[0, max(val_first, val_last) * 1.2], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False),
+        title=dict(text=title, font=dict(size=14, color="#a0a0b5")),
+        showlegend=False
+    )
+    return fig
+
 # 
 # SIDEBAR
 # 
@@ -955,7 +986,7 @@ else:
 # 
 # TABS & LAYOUT
 # 
-tab_dash, tab_graf = st.tabs(["Pass Dashboard", "Charts & Analysis"])
+tab_dash, tab_graf, tab_evo = st.tabs(["Pass Dashboard", "Charts & Analysis", "Evolution"])
 
 with tab_dash:
     # --- ROW 1: MAPS ---
@@ -1028,3 +1059,37 @@ with tab_graf:
         st.plotly_chart(fig_xt, use_container_width=True)
     else:
         st.warning("Not enough data to generate charts.")
+
+with tab_evo:
+    st.markdown("### First 9 vs Last 9 Matches")
+    st.markdown("Comparing the average performance between the first 9 and the last 9 matches to analyze player evolution.")
+    
+    df_scores = compute_match_scores(dfs_by_match)
+    
+    if len(df_scores) > 0:
+        if len(df_scores) < 18:
+            st.info(f"Note: Only {len(df_scores)} matches available. The comparison will overlap or use available data.")
+            
+        first_9 = df_scores.head(9)
+        last_9 = df_scores.tail(9)
+        
+        col_e1, col_e2 = st.columns(2)
+        
+        with col_e1:
+            fig_score = draw_comparison_bar("Score", first_9["Score"].mean(), last_9["Score"].mean())
+            st.plotly_chart(fig_score, use_container_width=True)
+            
+            fig_prog_evo = draw_comparison_bar("Progressive Passes p90", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
+            st.plotly_chart(fig_prog_evo, use_container_width=True)
+            
+            fig_pos_evo = draw_comparison_bar("% Positive ΔxT", first_9["pos_pct"].mean(), last_9["pos_pct"].mean(), suffix="%")
+            st.plotly_chart(fig_pos_evo, use_container_width=True)
+            
+        with col_e2:
+            fig_f3_evo = draw_comparison_bar("Final Third Passes p90", first_9["f3_p90"].mean(), last_9["f3_p90"].mean())
+            st.plotly_chart(fig_f3_evo, use_container_width=True)
+            
+            fig_xt_evo = draw_comparison_bar("Σ ΔxT p90", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
+            st.plotly_chart(fig_xt_evo, use_container_width=True)
+    else:
+        st.warning("Not enough data to generate evolution charts.")
