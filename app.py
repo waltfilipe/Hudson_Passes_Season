@@ -533,7 +533,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
             "switch_total": 0, "switch_success": 0, "switch_accuracy_pct": 0.0, "switch_pct_of_total": 0.0,
             "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
             "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
-            "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0, "minutes": mins
+            "total_p90": 0.0, "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0, "minutes": mins
         }
     successful = int(df["is_won"].sum())
     unsuccessful = total - successful
@@ -578,6 +578,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "pos_pct": round(pos_count / total * 100.0, 1),
         "high_xt_pct": round(high_xt / total * 100.0, 1),
         "sum_dxt": round(sum_dxt, 3),
+        "total_p90": round(total * p90_factor, 1),
         "prog_p90": round(progressive_total * p90_factor, 2),
         "f3_p90": round(to_final_third_success * p90_factor, 2),
         "xt_p90": round(sum_dxt * p90_factor, 3),
@@ -793,13 +794,14 @@ def draw_score_chart(df_scores):
     # Score Line (Blue)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
+        customdata=df_scores["match"],
         mode='lines+markers',
         line=dict(color="#2F80ED", width=3, shape='spline'),
         marker=dict(size=8, color="#2F80ED"),
         fill='tozeroy',
         fillcolor='rgba(47, 128, 237, 0.05)',
         name="Score",
-        hovertemplate="<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>"
+        hovertemplate="<b>%{customdata}</b><br>Score: %{y:.1f}<extra></extra>"
     ))
 
     # Mean Line
@@ -829,17 +831,28 @@ def draw_progressive_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["prog_p90"]
+    mean_prog = y.mean()
 
     # Progressive Line (Green)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
+        customdata=df_scores["match"],
         mode='lines+markers',
         line=dict(color="#10b981", width=3, shape='spline'),
         marker=dict(size=8, color="#10b981"),
         fill='tozeroy',
         fillcolor='rgba(16, 185, 129, 0.05)',
         name="Progressive Passes p90",
-        hovertemplate="<b>%{x}</b><br>Progressive p90: %{y:.1f}<extra></extra>"
+        hovertemplate="<b>%{customdata}</b><br>Progressive p90: %{y:.1f}<extra></extra>"
+    ))
+    
+    # Mean Line
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_prog]*len(x_labels),
+        mode='lines',
+        line=dict(color="#10b981", width=1.5, dash='dash'),
+        name=f"Avg: {mean_prog:.1f}",
+        hoverinfo='skip'
     ))
     
     fig.update_layout(
@@ -850,6 +863,8 @@ def draw_progressive_chart(df_scores):
         margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Progressive Passes p90", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
@@ -858,17 +873,28 @@ def draw_xt_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["xt_p90"]
+    mean_xt = y.mean()
 
     # xT Line (Amber)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
+        customdata=df_scores["match"],
         mode='lines+markers',
         line=dict(color="#f59e0b", width=3, shape='spline'),
         marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy',
         fillcolor='rgba(245, 158, 11, 0.05)',
         name="Σ ΔxT p90",
-        hovertemplate="<b>%{x}</b><br>Σ ΔxT p90: %{y:.2f}<extra></extra>"
+        hovertemplate="<b>%{customdata}</b><br>Σ ΔxT p90: %{y:.2f}<extra></extra>"
+    ))
+    
+    # Mean Line
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_xt]*len(x_labels),
+        mode='lines',
+        line=dict(color="#f59e0b", width=1.5, dash='dash'),
+        name=f"Avg: {mean_xt:.2f}",
+        hoverinfo='skip'
     ))
     
     fig.update_layout(
@@ -879,6 +905,8 @@ def draw_xt_chart(df_scores):
         margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Σ ΔxT p90 (Expected Threat)", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
@@ -948,39 +976,26 @@ with tab_dash:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- ROW 2: STATS ---
+    # --- ROW 2: STATS (2 Metrics per Column) ---
     col_s1, col_s2, col_s3 = st.columns(3)
+    
     with col_s1:
         row_label("📋 Pass Overview", "row-label-blue")
-        cmp_box("Total Passes", s_game["total_passes"], f"{s_avg['total_passes']:.1f}", border=C_BLUE)
-        cmp_box("Successful", s_game["successful_passes"], s_avg["successful_passes"],
-                disp_game=f"{s_game['successful_passes']} ({s_game['accuracy_pct']:.0f}%)",
-                disp_avg=f"{s_avg['successful_passes']:.1f} ({s_avg['accuracy_pct']:.0f}%)",
-                sub_game=f"{s_game['unsuccessful_passes']} unsuccessful", border=C_BLUE)
-        cmp_box("Progressive p90", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}",
-                disp_game=f"{s_game['prog_p90']:.1f}",
-                disp_avg=f"{s_avg['prog_p90']:.1f}",
-                sub_game=f"{s_game['progressive_successful']} total",
+        cmp_box("Total Passes p90", s_game["total_p90"], f"{s_avg['total_p90']:.1f}", border=C_BLUE)
+        cmp_box("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
+                disp_game=f"{s_game['accuracy_pct']:.1f}%",
+                disp_avg=f"{s_avg['accuracy_pct']:.1f}%",
                 border=C_BLUE)
 
     with col_s2:
-        row_label("🧭 Direction", "row-label-green")
-        cmp_box("Forward", s_game["fwd_pct"], s_avg["fwd_pct"],
-                disp_game=f"{s_game['fwd']} ({s_game['fwd_pct']:.0f}%)",
-                disp_avg=f"{s_avg['fwd']:.1f} ({s_avg['fwd_pct']:.0f}%)", border=C_GREEN)
-        cmp_box("Backward", s_game["bwd_pct"], s_avg["bwd_pct"],
-                disp_game=f"{s_game['bwd']} ({s_game['bwd_pct']:.0f}%)",
-                disp_avg=f"{s_avg['bwd']:.1f} ({s_avg['bwd_pct']:.0f}%)", border=C_GREEN)
-        cmp_box("Lateral", s_game["lat_pct"], s_avg["lat_pct"],
-                disp_game=f"{s_game['lat']} ({s_game['lat_pct']:.0f}%)",
-                disp_avg=f"{s_avg['lat']:.1f} ({s_avg['lat_pct']:.0f}%)", border=C_GREEN)
+        row_label("🧭 Advanced", "row-label-green")
+        cmp_box("Progressive p90", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}", border=C_GREEN)
+        cmp_box("Final Third p90", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}", border=C_GREEN)
 
     with col_s3:
-        row_label("⚡ xT + Tactical", "row-label-amber")
+        row_label("⚡ xT", "row-label-amber")
         cmp_box("% Positive ΔxT", s_game["pos_pct"], s_avg["pos_pct"],
                 disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER)
-        cmp_box("% ΔxT > 0.1", s_game["high_xt_pct"], s_avg["high_xt_pct"],
-                disp_game=f"{s_game['high_xt_pct']:.1f}%", disp_avg=f"{s_avg['high_xt_pct']:.1f}%", border=C_AMBER)
         cmp_box("Σ ΔxT p90", s_game["xt_p90"], f"{s_avg['xt_p90']:.3f}",
                 disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
 
