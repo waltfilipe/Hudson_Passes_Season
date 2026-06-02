@@ -397,7 +397,8 @@ def compute_match_scores(dfs_dict):
             'match': m_name,
             'xt': xt,
             'prog_pct': prog_pct,
-            'f3_pct': f3_pct
+            'f3_pct': f3_pct,
+            'prog_success': s['progressive_successful']
         })
         
     df_scores = pd.DataFrame(records)
@@ -610,8 +611,9 @@ def draw_score_chart(df_scores):
     ax.set_xlim(-0.5, len(x) + 0.8) # Espaço extra para o texto da média não cortar
     ax.set_xticks(x)
     
-    # Textos dos eixos mais suaves (acinzentados)
-    ax.set_xticklabels(df_scores["match"], rotation=45, ha="right", color="#a0a0b5", fontsize=9)
+    # Textos dos eixos mais suaves (acinzentados) e usando "Rodada X"
+    rodadas = [f"Rodada {i+1}" for i in range(len(df_scores))]
+    ax.set_xticklabels(rodadas, rotation=45, ha="right", color="#a0a0b5", fontsize=9)
     ax.tick_params(axis='y', colors="#a0a0b5", labelsize=9)
     
     # Remove os tracinhos (ticks) para um visual mais limpo
@@ -629,6 +631,62 @@ def draw_score_chart(df_scores):
     for spine in ["top", "right", "left"]:
         ax.spines[spine].set_visible(False)
     ax.spines["bottom"].set_edgecolor("#333344")
+
+    fig.tight_layout()
+    return fig
+
+def draw_secondary_chart(df_scores):
+    fig, ax1 = plt.subplots(figsize=(10, 4), facecolor="#1a1a2e")
+    ax1.set_facecolor("#1a1a2e")
+
+    x = np.arange(len(df_scores))
+    y_prog = df_scores["prog_success"].values
+    y_xt = df_scores["xt"].values
+
+    color_prog = C_BLUE
+    color_xt = C_AMBER
+
+    # Eixo 1 (Esquerda) - Passes Progressivos
+    ax1.plot(x, y_prog, color=color_prog, marker='o', linewidth=2, markersize=6, zorder=3, label="Passes Progressivos")
+    ax1.set_ylabel("Passes Progressivos", color=color_prog, fontsize=9)
+    ax1.tick_params(axis='y', colors=color_prog, labelsize=9)
+    
+    for i, val in enumerate(y_prog):
+        ax1.annotate(f"{int(val)}", (x[i], y_prog[i] + 0.5), color=color_prog, ha="center", fontsize=8, fontweight="bold")
+
+    # Eixo 2 (Direita) - Delta xT
+    ax2 = ax1.twinx()
+    ax2.plot(x, y_xt, color=color_xt, marker='s', linewidth=2, markersize=6, zorder=3, label="Σ ΔxT")
+    ax2.set_ylabel("Σ ΔxT", color=color_xt, fontsize=9)
+    ax2.tick_params(axis='y', colors=color_xt, labelsize=9)
+
+    for i, val in enumerate(y_xt):
+        ax2.annotate(f"{val:.2f}", (x[i], y_xt[i] + 0.05), color=color_xt, ha="center", fontsize=8, fontweight="bold")
+
+    # Eixo X
+    rodadas = [f"Rodada {i+1}" for i in range(len(df_scores))]
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(rodadas, rotation=45, ha="right", color="#a0a0b5", fontsize=9)
+    ax1.tick_params(axis='x', bottom=False)
+
+    # Grids e bordas
+    ax1.grid(axis='y', color="#ffffff", alpha=0.05, linestyle="-", zorder=0)
+    ax1.grid(axis='x', visible=False)
+    
+    for spine in ["top", "left"]:
+        ax1.spines[spine].set_visible(False)
+        ax2.spines[spine].set_visible(False)
+    
+    ax1.spines["right"].set_visible(False)
+    ax2.spines["right"].set_visible(False)
+    
+    ax1.spines["bottom"].set_edgecolor("#333344")
+    ax2.spines["bottom"].set_edgecolor("#333344")
+
+    # Legenda elegante no topo
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left', bbox_to_anchor=(0, 1.15), ncol=2, frameon=False, labelcolor='white', fontsize=9)
 
     fig.tight_layout()
     return fig
@@ -781,5 +839,11 @@ with tab_graf:
     if not df_scores.empty:
         fig_scores = draw_score_chart(df_scores)
         st.pyplot(fig_scores)
+        
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        
+        st.markdown("### Passes Progressivos e ΔxT")
+        fig_secondary = draw_secondary_chart(df_scores)
+        st.pyplot(fig_secondary)
     else:
-        st.warning("Não há dados suficientes para gerar o gráfico de pontuação.")
+        st.warning("Não há dados suficientes para gerar os gráficos.")
