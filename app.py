@@ -2,7 +2,6 @@ import re
 import math
 from pathlib import Path
 from io import BytesIO
-
 import streamlit as st
 import matplotlib
 matplotlib.use("Agg")
@@ -35,31 +34,64 @@ except Exception:
 # =========================================================
 st.markdown("""
 <style>
-.row-label{
-  font-size:13px;font-weight:700;color:#c8d6e5;letter-spacing:.3px;
-  margin-bottom:4px;margin-top:8px;padding:5px 9px;
-  background:rgba(255,255,255,.04);border-radius:4px;line-height:1.3;}
-.row-label-blue  {border-left:3px solid #2F80ED;}
-.row-label-green {border-left:3px solid #10b981;}
-.row-label-amber {border-left:3px solid #f59e0b;}
-.sec-hdr{
-  font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;
-  padding:6px 10px;border-radius:5px;margin:0 0 8px 0;
-  background:rgba(255,255,255,.04);}
-.cmp-box{
-  background:rgba(255,255,255,.04);border-radius:10px;
-  padding:10px 12px;margin-bottom:8px;}
-.cmp-label{
-  font-size:11px;color:#94a3b8;text-transform:uppercase;
-  letter-spacing:.6px;font-weight:600;margin-bottom:7px;}
-.cmp-row{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
-.cmp-cell{flex:1;}
-.cc-tag{font-size:10px;font-weight:700;margin-bottom:2px;}
-.cc-val{font-size:21px;font-weight:700;color:#f1f5f9;line-height:1.15;}
-.cc-arrow{font-size:11px;font-weight:700;color:#10b981;margin-left:4px;vertical-align:middle;}
-.cc-sub{font-size:9px;color:#64748b;margin-top:3px;}
-.cmp-sep{width:1px;background:rgba(255,255,255,.10);min-height:40px;flex-shrink:0;margin-top:18px;}
-.row-divider{border:none;border-top:1px solid rgba(255,255,255,.07);margin:8px 0 6px 0;}
+    .cmp-box {
+        background-color: #1e1e2d;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        border-left: 4px solid;
+    }
+    .cmp-title {
+        font-size: 13px;
+        color: #a0a0b0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+    .cmp-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .cmp-col {
+        display: flex;
+        flex-direction: column;
+        width: 48%;
+    }
+    .cmp-label {
+        font-size: 10px;
+        color: #666677;
+        margin-bottom: 2px;
+        font-weight: 700;
+    }
+    .cmp-val {
+        font-size: 18px;
+        font-weight: 700;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .cmp-sub {
+        font-size: 11px;
+        color: #888899;
+        margin-top: 2px;
+    }
+    .arrow-up { color: #10b981; font-size: 12px; }
+    .arrow-dn { color: #ef4444; font-size: 12px; }
+    .sec-hdr {
+        font-size: 16px;
+        font-weight: 700;
+        margin-top: 16px;
+        margin-bottom: 12px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #333344;
+    }
+    .row-label-blue { color: #60a5fa; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+    .row-label-green { color: #34d399; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+    .row-label-amber { color: #fbbf24; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+    .stImage > img { border-radius: 8px; border: 1px solid #333344; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -71,7 +103,6 @@ HALF_LINE_X = FIELD_X / 2
 FINAL_THIRD_LINE_X = 80.0
 LANE_LEFT_MIN = 53.33
 LANE_RIGHT_MAX = 26.67
-
 GOAL_X = 120.0
 GOAL_Y = 40.0
 
@@ -87,7 +118,6 @@ ALPHA_SUCCESS = 0.07
 C_BLUE = "#2F80ED"
 C_GREEN = "#10b981"
 C_AMBER = "#f59e0b"
-
 C_GAME = "#f87171"
 C_TOTAL = "#60a5fa"
 
@@ -267,6 +297,7 @@ def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
     dy = y_end - y_start
     dist = np.sqrt(dx**2 + dy**2)
     angle_deg = np.degrees(np.arctan2(abs(dy), dx))
+
     if angle_deg <= 45.0:
         return "forward"
     if angle_deg >= 135.0:
@@ -288,20 +319,16 @@ def compute_xt_grid(NX=16, NY=12, sub=24):
     xc = (xe[:-1] + xe[1:]) / 2
     yc_arr = (ye[:-1] + ye[1:]) / 2
     Xc, Yc = np.meshgrid(xc, yc_arr)
-
     xp = 0.01 + (Xc / FIELD_X) * 0.99
     yc = 1.0 - np.abs((Yc / FIELD_Y) - 0.5) * 2.0
     base = xp * (0.8 + 0.2 * yc)
     base = (base - base.min()) / (base.max() - base.min() + 1e-12)
-
     XT = base.copy()
     XT = (XT - XT.min()) / (XT.max() - XT.min() + 1e-12)
-
     XTc = np.zeros((NY, NX))
     for iy in range(NY):
         for ix in range(NX):
             XTc[iy, ix] = XT[iy*sub:(iy+1)*sub, ix*sub:(ix+1)*sub].mean()
-
     XTc = (XTc - XTc.min()) / (XTc.max() - XTc.min() + 1e-12)
     return XTc
 
@@ -342,15 +369,12 @@ def parse_docx_events(raw_text: str) -> dict:
             matches.setdefault(current_match, [])
             current_state = None
             continue
-
         if re_success.match(ln):
             current_state = "PASS WON"
             continue
-
         if re_fail.match(ln):
             current_state = "PASS LOST"
             continue
-
         m_arrow = re_arrow.match(ln)
         if m_arrow and current_match and current_state:
             x1, y1, x2, y2 = map(float, m_arrow.groups())
@@ -394,27 +418,23 @@ for match_name, events in combined_matches_data.items():
     dfm["match"] = match_name
     dfm["number"] = np.arange(1, len(dfm) + 1)
     dfm["is_won"] = dfm["type"].str.contains("WON", case=False)
-
     dfm["progressive"] = dfm.apply(
         lambda r: r["is_won"] and is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]),
         axis=1,
     )
     dfm["switch"] = dfm.apply(lambda r: is_switch_pass(r["x_start"], r["y_start"], r["y_end"]), axis=1)
-
     dfm["direction"] = dfm.apply(
         lambda r: classify_pass_direction(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
     )
     dfm["is_forward"] = dfm["direction"] == "forward"
     dfm["is_backward"] = dfm["direction"] == "backward"
     dfm["is_lateral"] = dfm["direction"].isin(["lateral_left", "lateral_right"])
-
     dfm["pass_distance"] = np.sqrt((dfm["x_end"] - dfm["x_start"])**2 + (dfm["y_end"] - dfm["y_start"])**2)
     dfm["xt_start"] = dfm.apply(lambda r: xt_value(r["x_start"], r["y_start"]), axis=1)
     dfm["xt_end"] = dfm.apply(lambda r: xt_value(r["x_end"], r["y_end"]), axis=1)
     dfm["delta_xt"] = np.where(dfm["is_won"], dfm["xt_end"] - dfm["xt_start"], 0.0)
     dfm["dist_bonus"] = distance_bonus(dfm["pass_distance"].values)
     dfm["delta_xt_adj"] = np.where(dfm["is_won"], dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
-
     dfs_by_match[match_name] = dfm
 
 df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
@@ -426,12 +446,29 @@ def compute_stats(df: pd.DataFrame) -> dict:
     total = len(df)
     if total == 0:
         return {
-            "total_passes": 0, "successful_passes": 0, "unsuccessful_passes": 0, "accuracy_pct": 0.0,
-            "progressive_attempted": 0, "progressive_successful": 0, "progressive_accuracy_pct": 0.0,
-            "to_final_third_total": 0, "to_final_third_success": 0, "to_final_third_accuracy_pct": 0.0,
-            "switch_total": 0, "switch_success": 0, "switch_accuracy_pct": 0.0, "switch_pct_of_total": 0.0,
-            "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
-            "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
+            "total_passes": 0,
+            "successful_passes": 0,
+            "unsuccessful_passes": 0,
+            "accuracy_pct": 0.0,
+            "progressive_attempted": 0,
+            "progressive_successful": 0,
+            "progressive_accuracy_pct": 0.0,
+            "to_final_third_total": 0,
+            "to_final_third_success": 0,
+            "to_final_third_accuracy_pct": 0.0,
+            "switch_total": 0,
+            "switch_success": 0,
+            "switch_accuracy_pct": 0.0,
+            "switch_pct_of_total": 0.0,
+            "fwd": 0,
+            "fwd_pct": 0.0,
+            "bwd": 0,
+            "bwd_pct": 0.0,
+            "lat": 0,
+            "lat_pct": 0.0,
+            "pos_pct": 0.0,
+            "high_xt_pct": 0.0,
+            "sum_dxt": 0.0,
         }
 
     successful = int(df["is_won"].sum())
@@ -480,9 +517,12 @@ def compute_stats(df: pd.DataFrame) -> dict:
         "switch_success": switch_success,
         "switch_accuracy_pct": round(switch_accuracy, 2),
         "switch_pct_of_total": round(switch_pct_of_total, 2),
-        "fwd": fwd, "fwd_pct": round(fwd / total * 100.0, 1),
-        "bwd": bwd, "bwd_pct": round(bwd / total * 100.0, 1),
-        "lat": lat, "lat_pct": round(lat / total * 100.0, 1),
+        "fwd": fwd,
+        "fwd_pct": round(fwd / total * 100.0, 1),
+        "bwd": bwd,
+        "bwd_pct": round(bwd / total * 100.0, 1),
+        "lat": lat,
+        "lat_pct": round(lat / total * 100.0, 1),
         "pos_pct": round(pos_count / total * 100.0, 1),
         "high_xt_pct": round(high_xt / total * 100.0, 1),
         "sum_dxt": round(sum_dxt, 3),
@@ -507,10 +547,10 @@ def _arrow_html(val_game: float, val_total: float) -> tuple[str, str]:
 
     if val_game > val_total:
         pct = _safe_pct_diff(val_game, val_total)
-        game_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
+        game_a = f'<span class="arrow-up">↑ {pct:.0f}%</span>'
     else:
         pct = _safe_pct_diff(val_total, val_game)
-        total_a = f'<span class="cc-arrow">↑ {pct:.0f}%</span>'
+        total_a = f'<span class="arrow-up">↑ {pct:.0f}%</span>'
     return game_a, total_a
 
 def cmp_box(
@@ -522,47 +562,47 @@ def cmp_box(
     sub_game="",
     sub_total="",
     border="#3b82f6",
-    show_arrow=True
+    show_arrow=True,
+    label_total="TOTAL"
 ):
     disp_game = str(val_game) if disp_game is None else disp_game
     disp_total = str(val_total) if disp_total is None else disp_total
 
     game_a, total_a = _arrow_html(float(val_game), float(val_total)) if show_arrow else ("", "")
 
-    sub_game_html = f'<div class="cc-sub">{sub_game}</div>' if sub_game else ""
-    sub_total_html = f'<div class="cc-sub">{sub_total}</div>' if sub_total else ""
+    sub_game_html = f'<div class="cmp-sub">{sub_game}</div>' if sub_game else ""
+    sub_total_html = f'<div class="cmp-sub">{sub_total}</div>' if sub_total else ""
 
     html = (
-        f'<div class="cmp-box" style="border-left:3px solid {border};">'
-        f'<div class="cmp-label">{label}</div>'
-        f'<div class="cmp-row">'
-        f'<div class="cmp-cell">'
-        f'<div class="cc-tag" style="color:{C_GAME};">JOGO</div>'
-        f'<div class="cc-val">{disp_game}{game_a}</div>'
-        f'{sub_game_html}'
-        f'</div>'
-        f'<div class="cmp-sep"></div>'
-        f'<div class="cmp-cell">'
-        f'<div class="cc-tag" style="color:{C_TOTAL};">TOTAL</div>'
-        f'<div class="cc-val">{disp_total}{total_a}</div>'
-        f'{sub_total_html}'
-        f'</div>'
-        f'</div>'
+        f'<div class="cmp-box" style="border-color: {border};">'
+        f'  <div class="cmp-title">{label}</div>'
+        f'  <div class="cmp-row">'
+        f'    <div class="cmp-col">'
+        f'      <div class="cmp-label">JOGO</div>'
+        f'      <div class="cmp-val">{disp_game}{game_a}</div>'
+        f'      {sub_game_html}'
+        f'    </div>'
+        f'    <div class="cmp-col">'
+        f'      <div class="cmp-label">{label_total}</div>'
+        f'      <div class="cmp-val">{disp_total}{total_a}</div>'
+        f'      {sub_total_html}'
+        f'    </div>'
+        f'  </div>'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
 
 def sec_hdr(label, color="#3b82f6"):
     st.markdown(
-        f'<div class="sec-hdr" style="border-left:3px solid {color};color:{color};">{label}</div>',
+        f'<div class="sec-hdr" style="color:{color}; border-bottom-color:{color}40;">{label}</div>',
         unsafe_allow_html=True
     )
 
 def row_label(text, cls="row-label-blue"):
-    st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="{cls}">{text}</div>', unsafe_allow_html=True)
 
 def row_divider():
-    st.markdown('<hr class="row-divider">', unsafe_allow_html=True)
+    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
 
 # =========================================================
 # DRAW HELPERS
@@ -580,8 +620,8 @@ def _attack_arrow(fig, has_cbar=False):
     ox = -0.04 if has_cbar else 0.0
     fig.patches.append(FancyArrowPatch(
         (0.44 + ox, 0.045), (0.56 + ox, 0.045),
-        transform=fig.transFigure, arrowstyle="-|>",
-        mutation_scale=11, linewidth=1.6, color="#aaaaaa"
+        transform=fig.transFigure, arrowstyle="-|>", mutation_scale=11,
+        linewidth=1.6, color="#aaaaaa"
     ))
     fig.text(0.50 + ox, 0.012, "Attacking Direction", ha="center", va="bottom",
              transform=fig.transFigure, fontsize=7.5, color="#aaaaaa")
@@ -599,7 +639,6 @@ def draw_pass_map(df):
         is_lost = not row["is_won"]
         is_prog = bool(row["progressive"])
         is_sw = bool(row["switch"])
-
         if is_lost:
             color, alpha = (COLOR_SWITCH, 0.60) if is_sw else (COLOR_FAIL, 0.72)
         elif is_sw:
@@ -612,8 +651,9 @@ def draw_pass_map(df):
         pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
                      color=color, width=1.3, headwidth=2.0, headlength=2.0,
                      ax=ax, zorder=3, alpha=alpha)
-        pitch.scatter(row["x_start"], row["y_start"], s=32, marker="o", color=color,
-                      edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
+        pitch.scatter(row["x_start"], row["y_start"], s=32, marker="o",
+                      color=color, edgecolors="white", linewidths=0.6,
+                      ax=ax, zorder=6, alpha=alpha)
 
     leg = ax.legend(handles=[
         Line2D([0], [0], color=COLOR_SUCCESS, lw=2.0, label="Completed", alpha=0.65),
@@ -621,8 +661,7 @@ def draw_pass_map(df):
         Line2D([0], [0], color=COLOR_SWITCH, lw=2.0, label="Switch", alpha=0.90),
         Line2D([0], [0], color=COLOR_FAIL, lw=2.0, label="Incomplete", alpha=0.90),
     ], loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True,
-       facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5,
-       labelspacing=0.35, borderpad=0.4)
+       facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5, labelspacing=0.35, borderpad=0.4)
     for t in leg.get_texts():
         t.set_color("white")
     leg.get_frame().set_alpha(0.90)
@@ -638,14 +677,13 @@ def draw_corridor_heatmap(df):
         "center": (LANE_RIGHT_MAX, LANE_LEFT_MIN),
         "right": (0.0, LANE_RIGHT_MAX),
     }
-
     counts = {}
     for cname, (y0, y1) in corridors.items():
         arr = np.zeros(6, dtype=int)
         for i in range(6):
             x0_, x1_ = x_bins[i], x_bins[i + 1]
-            arr[i] = int(((df_s["x_end"] >= x0_) & (df_s["x_end"] < x1_)
-                          & (df_s["y_end"] >= y0) & (df_s["y_end"] < y1)).sum())
+            arr[i] = int(((df_s["x_end"] >= x0_) & (df_s["x_end"] < x1_) &
+                          (df_s["y_end"] >= y0) & (df_s["y_end"] < y1)).sum())
         counts[cname] = arr
 
     all_vals = np.concatenate([counts[c] for c in counts])
@@ -660,14 +698,15 @@ def draw_corridor_heatmap(df):
             x0_, x1_ = x_bins[i], x_bins[i + 1]
             value = counts[cname][i]
             ax.add_patch(Rectangle((x0_, y0), x1_ - x0_, y1 - y0,
-                                   facecolor=cmap(norm(value)),
-                                   edgecolor=(1, 1, 1, 0.12), lw=0.5, alpha=0.95, zorder=2))
-            ax.text((x0_ + x1_) / 2, (y0 + y1) / 2, str(value), ha="center", va="center",
-                    color="#000000" if value <= threshold else "#ffffff",
+                                   facecolor=cmap(norm(value)), edgecolor=(1, 1, 1, 0.12),
+                                   lw=0.5, alpha=0.95, zorder=2))
+            ax.text((x0_ + x1_) / 2, (y0 + y1) / 2, str(value),
+                    ha="center", va="center", color="#000000" if value <= threshold else "#ffffff",
                     fontsize=9, fontweight="700" if value >= vmax * 0.5 else "600", zorder=4)
 
     ax.axhline(y=LANE_LEFT_MIN, color="#ffffff", lw=0.5, alpha=0.15, linestyle="--", zorder=3)
     ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.5, alpha=0.15, linestyle="--", zorder=3)
+
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
@@ -700,11 +739,12 @@ def draw_top10_xt_map(df):
             _draw_comet_arrow(ax, float(row["x_start"]), float(row["y_start"]),
                               float(row["x_end"]), float(row["y_end"]), color)
 
-    sm = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
-    cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
-    cbar.set_label("ΔxT", color="#ffffff", fontsize=8)
-    cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
-    plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
+        sm = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
+        cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
+        cbar.set_label("ΔxT", color="#ffffff", fontsize=8)
+        cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
+        plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
+
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
 
@@ -728,7 +768,6 @@ pass_filter = st.sidebar.radio(
     ["Todos", "Certos", "Errados", "Progressivos", "Final Third", "Switch"],
     index=0
 )
-
 show_table = st.sidebar.checkbox("Mostrar tabela de eventos", value=False)
 
 def apply_filter(df):
@@ -750,20 +789,32 @@ df_total = apply_filter(df_all.copy())
 s_game = compute_stats(df_game)
 s_total = compute_stats(df_total)
 
+# Calcula a média por jogo
+num_matches = len(dfs_by_match)
+s_avg = s_total.copy()
+if num_matches > 0:
+    for k in ["total_passes", "successful_passes", "unsuccessful_passes",
+              "progressive_attempted", "progressive_successful",
+              "to_final_third_total", "to_final_third_success",
+              "switch_total", "switch_success", "fwd", "bwd", "lat", "sum_dxt"]:
+        s_avg[k] = s_total[k] / num_matches
+
 # =========================================================
 # PRE-RENDER
 # =========================================================
 img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
 img_pm_total, fig_pm_total = draw_pass_map(df_total); plt.close(fig_pm_total)
+
 img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
 img_ht_total, fig_ht_total = draw_corridor_heatmap(df_total); plt.close(fig_ht_total)
+
 img_xt_game, fig_xt_game = draw_top10_xt_map(df_game); plt.close(fig_xt_game)
 img_xt_total, fig_xt_total = draw_top10_xt_map(df_total); plt.close(fig_xt_total)
 
 # =========================================================
 # LAYOUT
 # =========================================================
-st.caption("Comparativo automático: Jogo selecionado vs Total de passes (DOCX + GACup), com o mesmo filtro aplicado.")
+st.caption("Comparativo automático: Jogo selecionado vs Média por jogo (DOCX + GACup), com o mesmo filtro aplicado.")
 
 col_l, col_r, col_s = st.columns([1, 1, 1], gap="medium")
 
@@ -773,29 +824,37 @@ with col_l:
     st.image(img_pm_game, use_container_width=True)
 
 with col_r:
-    row_label("🟦 Pass Map · TOTAL (DOCX + GACup)", "row-label-blue")
+    row_label("🟦 Pass Map · TODOS OS JOGOS", "row-label-blue")
     st.image(img_pm_total, use_container_width=True)
 
 with col_s:
     sec_hdr("📋 Pass Overview", C_BLUE)
-    cmp_box("Total Passes", s_game["total_passes"], s_total["total_passes"], border=C_BLUE, show_arrow=False)
+    cmp_box("Total Passes", s_game["total_passes"], s_avg["total_passes"], 
+            disp_total=f"{s_avg['total_passes']:.1f}", 
+            border=C_BLUE, show_arrow=False, label_total="MÉDIA/JOGO")
+
     cmp_box(
         "Successful",
-        s_game["successful_passes"], s_total["successful_passes"],
+        s_game["successful_passes"],
+        s_avg["successful_passes"],
         disp_game=f"{s_game['successful_passes']} ({s_game['accuracy_pct']:.0f}%)",
-        disp_total=f"{s_total['successful_passes']} ({s_total['accuracy_pct']:.0f}%)",
+        disp_total=f"{s_avg['successful_passes']:.1f} ({s_avg['accuracy_pct']:.0f}%)",
         sub_game=f"{s_game['unsuccessful_passes']} unsuccessful",
-        sub_total=f"{s_total['unsuccessful_passes']} unsuccessful",
+        sub_total=f"{s_avg['unsuccessful_passes']:.1f} unsuccessful",
         border=C_BLUE,
-        show_arrow=False
+        show_arrow=False,
+        label_total="MÉDIA/JOGO"
     )
+
     cmp_box(
         "Progressive",
-        s_game["progressive_attempted"], s_total["progressive_attempted"],
+        s_game["progressive_attempted"],
+        s_avg["progressive_attempted"],
         disp_game=f"{s_game['progressive_successful']}/{s_game['progressive_attempted']} ({s_game['progressive_accuracy_pct']:.0f}%)",
-        disp_total=f"{s_total['progressive_successful']}/{s_total['progressive_attempted']} ({s_total['progressive_accuracy_pct']:.0f}%)",
+        disp_total=f"{s_avg['progressive_successful']:.1f}/{s_avg['progressive_attempted']:.1f} ({s_avg['progressive_accuracy_pct']:.0f}%)",
         border=C_BLUE,
-        show_arrow=False
+        show_arrow=False,
+        label_total="MÉDIA/JOGO"
     )
 
 row_divider()
@@ -808,31 +867,39 @@ with col_l2:
     st.image(img_ht_game, use_container_width=True)
 
 with col_r2:
-    row_label("🟩 Zone Heatmap · TOTAL", "row-label-green")
+    row_label("🟩 Zone Heatmap · TODOS OS JOGOS", "row-label-green")
     st.image(img_ht_total, use_container_width=True)
 
 with col_s2:
     sec_hdr("🧭 Direction", C_GREEN)
     cmp_box(
         "Forward",
-        s_game["fwd_pct"], s_total["fwd_pct"],
+        s_game["fwd_pct"],
+        s_avg["fwd_pct"],
         disp_game=f"{s_game['fwd']} ({s_game['fwd_pct']:.0f}%)",
-        disp_total=f"{s_total['fwd']} ({s_total['fwd_pct']:.0f}%)",
-        border=C_GREEN
+        disp_total=f"{s_avg['fwd']:.1f} ({s_avg['fwd_pct']:.0f}%)",
+        border=C_GREEN,
+        label_total="MÉDIA/JOGO"
     )
+
     cmp_box(
         "Backward",
-        s_game["bwd_pct"], s_total["bwd_pct"],
+        s_game["bwd_pct"],
+        s_avg["bwd_pct"],
         disp_game=f"{s_game['bwd']} ({s_game['bwd_pct']:.0f}%)",
-        disp_total=f"{s_total['bwd']} ({s_total['bwd_pct']:.0f}%)",
-        border=C_GREEN
+        disp_total=f"{s_avg['bwd']:.1f} ({s_avg['bwd_pct']:.0f}%)",
+        border=C_GREEN,
+        label_total="MÉDIA/JOGO"
     )
+
     cmp_box(
         "Lateral",
-        s_game["lat_pct"], s_total["lat_pct"],
+        s_game["lat_pct"],
+        s_avg["lat_pct"],
         disp_game=f"{s_game['lat']} ({s_game['lat_pct']:.0f}%)",
-        disp_total=f"{s_total['lat']} ({s_total['lat_pct']:.0f}%)",
-        border=C_GREEN
+        disp_total=f"{s_avg['lat']:.1f} ({s_avg['lat_pct']:.0f}%)",
+        border=C_GREEN,
+        label_total="MÉDIA/JOGO"
     )
 
 row_divider()
@@ -845,31 +912,39 @@ with col_l3:
     st.image(img_xt_game, use_container_width=True)
 
 with col_r3:
-    row_label("🟡 Top 10 ΔxT · TOTAL", "row-label-amber")
+    row_label("🟡 Top 10 ΔxT · TODOS OS JOGOS", "row-label-amber")
     st.image(img_xt_total, use_container_width=True)
 
 with col_s3:
     sec_hdr("⚡ xT + Tactical", C_AMBER)
     cmp_box(
         "% Positive ΔxT",
-        s_game["pos_pct"], s_total["pos_pct"],
+        s_game["pos_pct"],
+        s_avg["pos_pct"],
         disp_game=f"{s_game['pos_pct']:.1f}%",
-        disp_total=f"{s_total['pos_pct']:.1f}%",
-        border=C_AMBER
+        disp_total=f"{s_avg['pos_pct']:.1f}%",
+        border=C_AMBER,
+        label_total="MÉDIA/JOGO"
     )
+
     cmp_box(
         "% ΔxT > 0.1",
-        s_game["high_xt_pct"], s_total["high_xt_pct"],
+        s_game["high_xt_pct"],
+        s_avg["high_xt_pct"],
         disp_game=f"{s_game['high_xt_pct']:.1f}%",
-        disp_total=f"{s_total['high_xt_pct']:.1f}%",
-        border=C_AMBER
+        disp_total=f"{s_avg['high_xt_pct']:.1f}%",
+        border=C_AMBER,
+        label_total="MÉDIA/JOGO"
     )
+
     cmp_box(
         "Σ ΔxT",
-        s_game["sum_dxt"], s_total["sum_dxt"],
+        s_game["sum_dxt"],
+        s_avg["sum_dxt"],
         disp_game=f"{s_game['sum_dxt']:.3f}",
-        disp_total=f"{s_total['sum_dxt']:.3f}",
-        border=C_AMBER
+        disp_total=f"{s_avg['sum_dxt']:.3f}",
+        border=C_AMBER,
+        label_total="MÉDIA/JOGO"
     )
 
 st.caption(
