@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 # =========================================================
 # PAGE CONFIG
 # =========================================================
-st.set_page_config(layout="wide", page_title="Hudson Cicala — Passes Dashboard")
+st.set_page_config(layout="wide", page_title="Hudson Cicala — Pass Dashboard")
 
 # =========================================================
 # OPTIONAL DOCX IMPORT
@@ -34,13 +34,13 @@ except Exception:
 # =========================================================
 st.markdown("""
 <style>
-    /* Fundo geral e texto */
+    /* General background and text */
     .stApp {
         background-color: #0f0f1a;
         color: #e0e0e0;
     }
     
-    /* Esconde menu do Streamlit */
+    /* Hide Streamlit menu */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
@@ -50,7 +50,7 @@ st.markdown("""
         border-right: 1px solid #2a2a3d;
     }
     
-    /* Títulos e textos */
+    /* Headings */
     h1, h2, h3 {
         color: #ffffff;
         font-weight: 600;
@@ -77,7 +77,7 @@ st.markdown("""
         border-bottom: 2px solid #2F80ED !important;
     }
     
-    /* Caixas de métricas personalizadas */
+    /* Custom Metric Boxes */
     .metric-box {
         background-color: #1a1a2e;
         border: 1px solid #2a2a3d;
@@ -131,7 +131,7 @@ st.markdown("""
         padding-top: 8px;
     }
     
-    /* Labels das linhas (títulos dos blocos) */
+    /* Row Labels */
     .row-label-blue {
         color: #2F80ED;
         font-size: 1.1rem;
@@ -405,7 +405,7 @@ def xt_value(x, y):
 # =========================================================
 def read_docx_text(docx_path: Path) -> str:
     if not DOCX_AVAILABLE:
-        raise RuntimeError("python-docx não está instalado.")
+        raise RuntimeError("python-docx is not installed.")
     doc = Document(str(docx_path))
     return "\n".join(p.text for p in doc.paragraphs if p.text and p.text.strip())
 
@@ -464,11 +464,11 @@ for k, v in docx_matches_data.items():
 combined_matches_data.update(BASE_MATCHES_DATA)
 
 if len(combined_matches_data) == 0:
-    st.error("Não foi possível carregar dados.")
+    st.error("Could not load data.")
     st.stop()
 
 # =========================================================
-# BUILD DATAFRAMES
+# BUILD DATAFRAMES & REORDER MATCHES
 # =========================================================
 dfs_by_match = {}
 for match_name, events in combined_matches_data.items():
@@ -494,6 +494,15 @@ for match_name, events in combined_matches_data.items():
     dfm["dist_bonus"] = distance_bonus(dfm["pass_distance"].values)
     dfm["delta_xt_adj"] = np.where(dfm["is_won"], dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
     dfs_by_match[match_name] = dfm
+
+# REORDER LOGIC: Move Match 15-18 to be after Match 6
+items = list(dfs_by_match.items())
+if len(items) >= 18:
+    part1 = items[:6]        # Matches 1 to 6
+    part2 = items[14:18]     # Matches 15 to 18
+    part3 = items[6:14]      # Matches 7 to 14
+    part4 = items[18:]       # Matches 19+
+    dfs_by_match = dict(part1 + part2 + part3 + part4)
 
 df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
 
@@ -617,7 +626,7 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game=""
         f'{arrow}'
         f'</div>'
         f'{sub_game_html}'
-        f'<div class="metric-avg">MÉDIA/JOGO: {disp_avg}</div>'
+        f'<div class="metric-avg">AVG/MATCH: {disp_avg}</div>'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -757,11 +766,11 @@ def draw_top10_xt_map(df):
 # =========================================================
 def draw_score_chart(df_scores):
     fig = go.Figure()
-    x_labels = [f"Rodada {i+1}" for i in range(len(df_scores))]
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["Score"]
     mean_score = y.mean()
 
-    # Linha do Score
+    # Score Line (Blue)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
         mode='lines+markers',
@@ -773,12 +782,12 @@ def draw_score_chart(df_scores):
         hovertemplate="<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>"
     ))
 
-    # Linha da Média
+    # Mean Line
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_score]*len(x_labels),
         mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Média: {mean_score:.1f}",
+        name=f"Avg: {mean_score:.1f}",
         hoverinfo='skip'
     ))
 
@@ -792,24 +801,25 @@ def draw_score_chart(df_scores):
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Evolução do Score", font=dict(size=14, color="#ffffff"))
+        title=dict(text="Score Evolution", font=dict(size=14, color="#ffffff"))
     )
     return fig
 
 def draw_progressive_chart(df_scores):
     fig = go.Figure()
-    x_labels = [f"Rodada {i+1}" for i in range(len(df_scores))]
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["prog_success"]
 
+    # Progressive Line (Green)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
         mode='lines+markers',
-        line=dict(color="#2F80ED", width=3, shape='spline'),
-        marker=dict(size=8),
+        line=dict(color="#10b981", width=3, shape='spline'),
+        marker=dict(size=8, color="#10b981"),
         fill='tozeroy',
-        fillcolor='rgba(47, 128, 237, 0.05)',
-        name="Passes Progressivos",
-        hovertemplate="<b>%{x}</b><br>Progressivos: %{y}<extra></extra>"
+        fillcolor='rgba(16, 185, 129, 0.05)',
+        name="Progressive Passes",
+        hovertemplate="<b>%{x}</b><br>Progressive: %{y}<extra></extra>"
     ))
     
     fig.update_layout(
@@ -820,20 +830,21 @@ def draw_progressive_chart(df_scores):
         margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        title=dict(text="Passes Progressivos", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
 def draw_xt_chart(df_scores):
     fig = go.Figure()
-    x_labels = [f"Rodada {i+1}" for i in range(len(df_scores))]
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["xt"]
 
+    # xT Line (Amber)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
         mode='lines+markers',
         line=dict(color="#f59e0b", width=3, shape='spline'),
-        marker=dict(size=8),
+        marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy',
         fillcolor='rgba(245, 158, 11, 0.05)',
         name="Σ ΔxT",
@@ -848,30 +859,30 @@ def draw_xt_chart(df_scores):
         margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        title=dict(text="Σ ΔxT (Ameaça Esperada)", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Σ ΔxT (Expected Threat)", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
 # =========================================================
 # SIDEBAR
 # =========================================================
-st.sidebar.title("Pass Map - Dashboard")
-st.sidebar.write(f"**{len(dfs_by_match)} jogos coletados**")
+st.sidebar.title("Pass Dashboard")
+st.sidebar.write(f"**{len(dfs_by_match)} matches collected**")
 st.sidebar.markdown("---")
-st.sidebar.header("Filtros de Visualização")
+st.sidebar.header("View Filters")
 
 all_match_names = list(dfs_by_match.keys())
-selected_match = st.sidebar.selectbox("Selecione o jogo", options=all_match_names, index=0)
+selected_match = st.sidebar.selectbox("Select Match", options=all_match_names, index=0)
 pass_filter = st.sidebar.radio(
-    "Tipo de passe",
-    ["Todos", "Certos", "Errados", "Progressivos", "Final Third", "Switch"],
+    "Pass Type",
+    ["All", "Successful", "Unsuccessful", "Progressive", "Final Third", "Switch"],
     index=0
 )
 
 def apply_filter(df):
-    if pass_filter == "Certos": return df[df["is_won"]].copy()
-    if pass_filter == "Errados": return df[~df["is_won"]].copy()
-    if pass_filter == "Progressivos": return df[df["progressive"]].copy()
+    if pass_filter == "Successful": return df[df["is_won"]].copy()
+    if pass_filter == "Unsuccessful": return df[~df["is_won"]].copy()
+    if pass_filter == "Progressive": return df[df["progressive"]].copy()
     if pass_filter == "Final Third":
         return df[(df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)].copy()
     if pass_filter == "Switch": return df[df["switch"]].copy()
@@ -892,7 +903,7 @@ for k in ["total_passes", "successful_passes", "unsuccessful_passes",
 # =========================================================
 # TABS & LAYOUT
 # =========================================================
-tab_dash, tab_graf = st.tabs(["Dashboard de Passes", "Gráficos & Análises"])
+tab_dash, tab_graf = st.tabs(["Pass Dashboard", "Charts & Analysis"])
 
 with tab_dash:
     # --- ROW 1: MAPS ---
@@ -949,30 +960,31 @@ with tab_dash:
                 disp_game=f"{s_game['sum_dxt']:.3f}", disp_avg=f"{s_avg['sum_dxt']:.3f}", border=C_AMBER)
 
 with tab_graf:
-    st.markdown("### Evolução da Pontuação (Score) por Partida")
+    st.markdown("### Score Evolution per Match")
     st.markdown("""
-    **Como a nota (50 a 90) é calculada?**
-    Utilizamos uma *Normalização Min-Max* comparando o desempenho de cada partida com os extremos de todos os jogos carregados no dashboard. Isso garante que a nota reflita o contexto real do jogador.
+    **How is the score (50 to 90) calculated?**
+    We use *Min-Max Normalization* comparing each match's performance against the extremes of all loaded matches. This ensures the score reflects the player's true context.
     
-    **Pesos utilizados:**
-    - **xT (Expected Threat) Total (Peso 50%):** Mede o perigo real gerado pelos passes bem-sucedidos.
-    - **% Passes Progressivos (Peso 25%):** Mede a intenção e capacidade de quebrar linhas adversárias.
-    - **% Passes Terço Final (Peso 25%):** Mede a agressividade territorial e presença no ataque.
+    **Weights used:**
+    - **Total xT (Expected Threat) (50% Weight):** Measures the actual danger generated by successful passes.
+    - **% Progressive Passes (25% Weight):** Measures the intent and ability to break opponent lines.
+    - **% Final Third Passes (25% Weight):** Measures territorial aggressiveness and attacking presence.
     """)
 
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
-        # Gráfico 1: Score Geral
+        # Chart 1: General Score (Blue)
         fig_scores = draw_score_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Gráficos 2 e 3: Progressivos e xT Separados e Menores
+        # Chart 2: Progressive Passes (Green)
         fig_prog = draw_progressive_chart(df_scores)
         st.plotly_chart(fig_prog, use_container_width=True)
         
+        # Chart 3: xT (Amber)
         fig_xt = draw_xt_chart(df_scores)
         st.plotly_chart(fig_xt, use_container_width=True)
     else:
-        st.warning("Não há dados suficientes para gerar os gráficos.")
+        st.warning("Not enough data to generate charts.")
