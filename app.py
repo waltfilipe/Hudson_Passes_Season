@@ -275,10 +275,14 @@ except Exception:
     pass
 
 combined_matches_data = {}
-combined_matches_data.update(BASE_MATCHES_DATA)
+
+# 1. Carregar primeiro os jogos do DOCX (ex: Colorado Rapids)
 for k, v in docx_matches_data.items():
     name = k if k not in combined_matches_data else f"DOCX - {k}"
     combined_matches_data[name] = v
+
+# 2. Carregar os jogos da GACup logo em seguida (para ficarem após os do DOCX)
+combined_matches_data.update(BASE_MATCHES_DATA)
 
 if len(combined_matches_data) == 0:
     st.error("Não foi possível carregar dados.")
@@ -591,21 +595,40 @@ def draw_score_chart(df_scores):
 
     x = np.arange(len(df_scores))
     y = df_scores["Score"].values
+    mean_score = y.mean()
 
-    ax.plot(x, y, color=C_BLUE, marker='o', linewidth=2, markersize=8, zorder=3)
-    ax.fill_between(x, y, 40, color=C_BLUE, alpha=0.1, zorder=2)
+    # Linha da média geral (dourada, sutil e tracejada)
+    ax.axhline(y=mean_score, color="#ffd700", alpha=0.3, linestyle="--", linewidth=1.5, zorder=1)
+    # Rótulo da média
+    ax.text(x[-1] + 0.2, mean_score, f"Média: {mean_score:.1f}", color="#ffd700", alpha=0.6, ha="left", va="center", fontsize=9)
+
+    # Linha principal de evolução
+    ax.plot(x, y, color=C_BLUE, marker='o', linewidth=2, markersize=6, zorder=3)
+    ax.fill_between(x, y, 40, color=C_BLUE, alpha=0.05, zorder=2)
 
     ax.set_ylim(40, 100)
+    ax.set_xlim(-0.5, len(x) + 0.8) # Espaço extra para o texto da média não cortar
     ax.set_xticks(x)
-    ax.set_xticklabels(df_scores["match"], rotation=45, ha="right", color="white", fontsize=9)
-    ax.tick_params(axis='y', colors="white", labelsize=9)
+    
+    # Textos dos eixos mais suaves (acinzentados)
+    ax.set_xticklabels(df_scores["match"], rotation=45, ha="right", color="#a0a0b5", fontsize=9)
+    ax.tick_params(axis='y', colors="#a0a0b5", labelsize=9)
+    
+    # Remove os tracinhos (ticks) para um visual mais limpo
+    ax.tick_params(axis='x', bottom=False)
+    ax.tick_params(axis='y', left=False)
 
     for i, val in enumerate(y):
-        ax.annotate(f"{val:.1f}", (x[i], y[i] + 2), color="white", ha="center", fontsize=10, fontweight="bold")
+        ax.annotate(f"{val:.1f}", (x[i], y[i] + 1.5), color="white", ha="center", fontsize=9, fontweight="bold")
 
-    ax.grid(color="#ffffff", alpha=0.1, linestyle="--", zorder=1)
-    for spine in ax.spines.values():
-        spine.set_edgecolor("#444466")
+    # Grid apenas horizontal e bem suave
+    ax.grid(axis='y', color="#ffffff", alpha=0.05, linestyle="-", zorder=0)
+    ax.grid(axis='x', visible=False)
+    
+    # Removendo bordas (spines) superior, direita e esquerda para elegância
+    for spine in ["top", "right", "left"]:
+        ax.spines[spine].set_visible(False)
+    ax.spines["bottom"].set_edgecolor("#333344")
 
     fig.tight_layout()
     return fig
@@ -618,7 +641,10 @@ st.sidebar.write(f"**{len(dfs_by_match)} jogos coletados**")
 st.sidebar.markdown("---")
 
 st.sidebar.header("Filtros de Visualização")
-all_match_names = sorted(dfs_by_match.keys())
+
+# Usando list() em vez de sorted() para manter a ordem cronológica
+# (DOCX primeiro, GACup depois)
+all_match_names = list(dfs_by_match.keys())
 selected_match = st.sidebar.selectbox("Selecione o jogo", options=all_match_names, index=0)
 
 pass_filter = st.sidebar.radio(
