@@ -524,7 +524,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
             "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
             "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
             "total_p90": 0.0, "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0, "minutes": mins,
-            "long_acc_pct": 0.0, "high_xt_p90": 0.0
+            "long_acc_pct": 0.0, "high_xt_p90": 0.0, "dz_p90": 0.0
         }
     successful = int(df["is_won"].sum())
     unsuccessful = total - successful
@@ -542,11 +542,18 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     to_final_third_success = int((to_final_third & df["is_won"]).sum())
     to_final_third_accuracy = (to_final_third_success / to_final_third_total * 100.0) if to_final_third_total else 0.0
 
-    # Long passes (> 30)
-    long_passes = df[df["pass_distance"] > 30.0]
+    # Long passes (> 25m)
+    long_passes = df[df["pass_distance"] > 25.0]
     long_total = len(long_passes)
     long_success = int(long_passes["is_won"].sum())
     long_acc_pct = (long_success / long_total * 100.0) if long_total > 0 else 0.0
+
+    # Dangerous Zone Passes (Last column OR center of the 5th column)
+    dz_mask = df["is_won"] & (
+        (df["x_end"] >= 100.0) | 
+        ((df["x_end"] >= 80.0) & (df["x_end"] < 100.0) & (df["y_end"] >= LANE_RIGHT_MAX) & (df["y_end"] < LANE_LEFT_MIN))
+    )
+    dz_passes = int(dz_mask.sum())
 
     fwd = int(df["is_forward"].sum())
     bwd = int(df["is_backward"].sum())
@@ -575,7 +582,8 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "xt_p90": round(sum_dxt * p90_factor, 3),
         "minutes": mins,
         "long_acc_pct": round(long_acc_pct, 1),
-        "high_xt_p90": round(high_xt * p90_factor, 2)
+        "high_xt_p90": round(high_xt * p90_factor, 2),
+        "dz_p90": round(dz_passes * p90_factor, 2)
     }
 
 def compute_match_scores(dfs_dict):
@@ -593,7 +601,9 @@ def compute_match_scores(dfs_dict):
             'total_p90': s['total_p90'],
             'accuracy_pct': s['accuracy_pct'],
             'long_acc_pct': s['long_acc_pct'],
-            'high_xt_p90': s['high_xt_p90']
+            'high_xt_p90': s['high_xt_p90'],
+            'dz_p90': s['dz_p90'],
+            'prog_acc_pct': s['progressive_accuracy_pct']
         })
     df_scores = pd.DataFrame(records)
     if df_scores.empty: return df_scores
@@ -611,13 +621,13 @@ def compute_match_scores(dfs_dict):
     
     # Weights applied to p90 metrics (Total = 100%)
     # xT(45%), Prog(25%), F3(20%), Pos_xT(5%), Total_p90(5%)
-    df_scores['Score'] = (df_scores['xt_norm'] * 0.45) + \
+    df_scores['Grade'] = (df_scores['xt_norm'] * 0.45) + \
                          (df_scores['prog_norm'] * 0.25) + \
                          (df_scores['f3_norm'] * 0.20) + \
                          (df_scores['pos_pct_norm'] * 0.05) + \
                          (df_scores['total_p90_norm'] * 0.05)
                          
-    df_scores['Score'] = df_scores['Score'].round(1)
+    df_scores['Grade'] = df_scores['Grade'].round(1)
     return df_scores
 
 # 
@@ -788,13 +798,13 @@ def draw_top5_xt_map(df):
 # 
 # PLOTLY CHARTS (Modern & Interactive)
 # 
-def draw_score_chart(df_scores):
+def draw_grade_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
-    y = df_scores["Score"]
-    mean_score = y.mean()
+    y = df_scores["Grade"]
+    mean_grade = y.mean()
 
-    # Score Line (Blue)
+    # Grade Line (Blue)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y,
         customdata=df_scores["match"],
@@ -803,16 +813,16 @@ def draw_score_chart(df_scores):
         marker=dict(size=8, color="#2F80ED"),
         fill='tozeroy',
         fillcolor='rgba(47, 128, 237, 0.05)',
-        name="Score",
-        hovertemplate="<b>%{customdata}</b><br>Score: %{y:.1f}<extra></extra>"
+        name="Grade",
+        hovertemplate="<b>%{customdata}</b><br>Grade: %{y:.1f}<extra></extra>"
     ))
 
     # Mean Line (Golden)
     fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_score]*len(x_labels),
+        x=x_labels, y=[mean_grade]*len(x_labels),
         mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Avg: {mean_score:.1f}",
+        name=f"Avg: {mean_grade:.1f}",
         hoverinfo='skip'
     ))
 
@@ -826,7 +836,7 @@ def draw_score_chart(df_scores):
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Score Evolution", font=dict(size=14, color="#ffffff"))
+        title=dict(text="Grade Evolution", font=dict(size=14, color="#ffffff"))
     )
     return fig
 
@@ -1074,23 +1084,23 @@ with tab_dash:
                 disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
 
 with tab_graf:
-    st.markdown("### Score Evolution per Match")
+    st.markdown("### Grade Evolution per Match")
     st.markdown("""
-    **How is the score (40 to 100) calculated?**
-    We use *Min-Max Normalization* comparing each match's performance against the extremes of all loaded matches. This ensures the score reflects the player's true context.
+    **How is the Grade calculated?**
+    We use *Min-Max Normalization* comparing each match's performance against the extremes of all loaded matches. This ensures the grade reflects the player's true context.
     
-    **Weights used (Normalized per 90 mins):**
-    - **Total xT p90 (45% Weight):** Measures the actual danger generated by successful passes.
-    - **Progressive Passes p90 (25% Weight):** Measures the intent and ability to break opponent lines.
-    - **Final Third Passes p90 (20% Weight):** Measures territorial aggressiveness and attacking presence.
-    - **% Positive ΔxT (5% Weight):** Measures the efficiency of positive threat generation.
-    - **Total Passes p90 (5% Weight):** Measures overall involvement in the game.
+    **Metrics evaluated (Normalized per 90 mins):**
+    - **Total xT p90:** Measures the actual danger generated by successful passes.
+    - **Progressive Passes p90:** Measures the intent and ability to break opponent lines.
+    - **Final Third Passes p90:** Measures territorial aggressiveness and attacking presence.
+    - **% Positive ΔxT:** Measures the efficiency of positive threat generation.
+    - **Total Passes p90:** Measures overall involvement in the game.
     """)
 
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
-        # Chart 1: General Score (Blue)
-        fig_scores = draw_score_chart(df_scores)
+        # Chart 1: General Grade (Blue)
+        fig_scores = draw_grade_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1123,40 +1133,42 @@ with tab_evo:
         first_9 = df_scores.head(9)
         last_9 = df_scores.tail(9)
         
-        # Calculate Consistency (4 to 10 scale based on standard deviation)
-        std_first = first_9["Score"].std(ddof=0) if len(first_9) > 1 else 0
-        cons_first = np.clip(10.0 - (std_first / 20.0) * 6.0, 4.0, 10.0)
-        
-        std_last = last_9["Score"].std(ddof=0) if len(last_9) > 1 else 0
-        cons_last = np.clip(10.0 - (std_last / 20.0) * 6.0, 4.0, 10.0)
-        
-        # Layout para deixar os gráficos menos "largos" e centralizados
-        col_pad1, col_e1, col_e2, col_pad2 = st.columns([1, 2, 2, 1])
-        
-        with col_e1:
-            fig_score = draw_comparison_bar("Score", first_9["Score"].mean(), last_9["Score"].mean())
-            st.plotly_chart(fig_score, use_container_width=True)
-            
-            fig_prog_evo = draw_comparison_bar("Progressive Passes p90", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
-            st.plotly_chart(fig_prog_evo, use_container_width=True)
-            
-            fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%")
-            st.plotly_chart(fig_acc_evo, use_container_width=True)
-            
-            fig_high_xt_evo = draw_comparison_bar("High xT Passes (>0.1) p90", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
-            st.plotly_chart(fig_high_xt_evo, use_container_width=True)
-            
-        with col_e2:
-            fig_f3_evo = draw_comparison_bar("Final Third Passes p90", first_9["f3_p90"].mean(), last_9["f3_p90"].mean())
-            st.plotly_chart(fig_f3_evo, use_container_width=True)
-            
+        # Layout 3x3 as requested
+        # Row 1
+        r1c1, r1c2, r1c3 = st.columns(3)
+        with r1c1:
+            fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
+            st.plotly_chart(fig_grade, use_container_width=True)
+        with r1c2:
             fig_xt_evo = draw_comparison_bar("Σ ΔxT p90", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
             st.plotly_chart(fig_xt_evo, use_container_width=True)
-            
-            fig_long_evo = draw_comparison_bar("Long Pass Accuracy % (>30m)", first_9["long_acc_pct"].mean(), last_9["long_acc_pct"].mean(), suffix="%")
+        with r1c3:
+            fig_high_xt_evo = draw_comparison_bar("High xT Passes (>0.1) p90", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
+            st.plotly_chart(fig_high_xt_evo, use_container_width=True)
+
+        # Row 2
+        r2c1, r2c2, r2c3 = st.columns(3)
+        with r2c1:
+            fig_prog_evo = draw_comparison_bar("Progressive Passes p90", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
+            st.plotly_chart(fig_prog_evo, use_container_width=True)
+        with r2c2:
+            fig_f3_evo = draw_comparison_bar("Final Third Passes p90", first_9["f3_p90"].mean(), last_9["f3_p90"].mean())
+            st.plotly_chart(fig_f3_evo, use_container_width=True)
+        with r2c3:
+            fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes p90", first_9["dz_p90"].mean(), last_9["dz_p90"].mean())
+            st.plotly_chart(fig_dz_evo, use_container_width=True)
+
+        # Row 3
+        r3c1, r3c2, r3c3 = st.columns(3)
+        with r3c1:
+            fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%")
+            st.plotly_chart(fig_acc_evo, use_container_width=True)
+        with r3c2:
+            fig_long_evo = draw_comparison_bar("Long Pass Accuracy % (>25m)", first_9["long_acc_pct"].mean(), last_9["long_acc_pct"].mean(), suffix="%")
             st.plotly_chart(fig_long_evo, use_container_width=True)
+        with r3c3:
+            fig_prog_acc_evo = draw_comparison_bar("Progressive Pass Accuracy %", first_9["prog_acc_pct"].mean(), last_9["prog_acc_pct"].mean(), suffix="%")
+            st.plotly_chart(fig_prog_acc_evo, use_container_width=True)
             
-            fig_cons_evo = draw_comparison_bar("Consistency (4 to 10)", cons_first, cons_last)
-            st.plotly_chart(fig_cons_evo, use_container_width=True)
     else:
         st.warning("Not enough data to generate evolution charts.")
