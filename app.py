@@ -269,11 +269,27 @@ def get_lane(y):
     return "center"
 
 def is_progressive_pass(x_start, y_start, x_end, y_end) -> bool:
-    if x_start < 35: return False
-    start_dist = distance_to_goal(x_start, y_start)
-    end_dist = distance_to_goal(x_end, y_end)
-    if start_dist == 0: return False
-    return ((start_dist - end_dist) / start_dist) >= 0.25
+    """
+    Wyscout Progressive Pass Rule:
+    - Own half to own half: >= 30m closer to opponent's goal
+    - Own half to opponent's half: >= 15m closer to opponent's goal
+    - Opponent's half to opponent's half: >= 10m closer to opponent's goal
+    """
+    dist_start = distance_to_goal(x_start, y_start)
+    dist_end = distance_to_goal(x_end, y_end)
+    dist_diff = dist_start - dist_end
+    
+    # Own half (x < 60)
+    if x_start < 60.0 and x_end < 60.0:
+        return dist_diff >= 30.0
+    # Different halves
+    elif x_start < 60.0 and x_end >= 60.0:
+        return dist_diff >= 15.0
+    # Opponent's half (x >= 60)
+    elif x_start >= 60.0 and x_end >= 60.0:
+        return dist_diff >= 10.0
+        
+    return False
 
 def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
     dx = x_end - x_start
