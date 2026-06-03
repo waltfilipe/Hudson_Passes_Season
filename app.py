@@ -746,6 +746,38 @@ def draw_top5_xt_map(df):
 #
 # PLOTLY CHARTS (Modern & Interactive)
 #
+def draw_total_passes_chart(df_scores):
+    fig = go.Figure()
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
+    y = df_scores["total_p90"]
+    mean_val = y.mean()
+
+    # Total Passes Line (Cyan)
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        line=dict(color="#00d2ff", width=3, shape='spline'),
+        marker=dict(size=8, color="#00d2ff"),
+        fill='tozeroy', fillcolor='rgba(0, 210, 255, 0.05)',
+        name="Total Passes p90", hovertemplate="%{customdata}<br>Total Passes p90: %{y:.1f}"
+    ))
+
+    # Mean Line (Golden)
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_val]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'),
+        name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
+    ))
+
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        title=dict(text="Total Passes p90", font=dict(size=14, color="#a0a0b5"))
+    )
+    return fig
+
 def draw_grade_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
@@ -975,12 +1007,15 @@ with tab_graf:
 
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
+        st.markdown("### Stats Evolution")
+
+        # Chart 0: Total Passes p90 (Cyan) - New First Chart
+        fig_total = draw_total_passes_chart(df_scores)
+        st.plotly_chart(fig_total, use_container_width=True)
+
         # Chart 1: General Grade (Blue)
         fig_scores = draw_grade_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### Stats Evolution")
 
         # Chart 2: Progressive Passes (Green)
         fig_prog = draw_progressive_chart(df_scores)
