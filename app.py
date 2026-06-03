@@ -758,7 +758,7 @@ def draw_total_passes_chart(df_scores):
         line=dict(color="#00d2ff", width=3, shape='spline'),
         marker=dict(size=8, color="#00d2ff"),
         fill='tozeroy', fillcolor='rgba(0, 210, 255, 0.05)',
-        name="Total Passes p90", hovertemplate="%{customdata}<br>Total Passes p90: %{y:.1f}"
+        name="Total Passes p90", hovertemplate="<b>%{customdata}</b><br>Total Passes p90: %{y:.1f}<extra></extra>"
     ))
 
     # Mean Line (Golden)
@@ -784,13 +784,42 @@ def draw_grade_chart(df_scores):
     y = df_scores["Grade"]
     mean_grade = y.mean()
 
+    # Metrics for Tooltip Feature
+    metrics = {
+        'Σ ΔxT': ('xt_p90', df_scores['xt_p90'].mean()),
+        'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
+        'Final 3rd': ('f3_p90', df_scores['f3_p90'].mean()),
+        '% Pos ΔxT': ('pos_pct', df_scores['pos_pct'].mean()),
+        'Total Passes': ('total_p90', df_scores['total_p90'].mean())
+    }
+    
+    hover_texts = []
+    for _, row in df_scores.iterrows():
+        diffs = {}
+        for name, (col, avg) in metrics.items():
+            if avg == 0:
+                diffs[name] = 0
+            else:
+                diffs[name] = ((row[col] - avg) / avg) * 100
+        
+        if row['Grade'] >= mean_grade:
+            best_metric = max(diffs, key=diffs.get)
+            val = diffs[best_metric]
+            hover_texts.append(f"<br><span style='font-size:11px; color:#94a3b8'>Highlight:</span> <b>{best_metric}</b> <span style='color:#10b981'>(+{val:.1f}%)</span>")
+        else:
+            worst_metric = min(diffs, key=diffs.get)
+            val = diffs[worst_metric]
+            hover_texts.append(f"<br><span style='font-size:11px; color:#94a3b8'>Issue:</span> <b>{worst_metric}</b> <span style='color:#ef4444'>({val:.1f}%)</span>")
+            
+    customdata = np.stack((df_scores["match"], hover_texts), axis=-1)
+
     # Grade Line (Blue)
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        x=x_labels, y=y, customdata=customdata, mode='lines+markers',
         line=dict(color="#2F80ED", width=3, shape='spline'),
         marker=dict(size=8, color="#2F80ED"),
         fill='tozeroy', fillcolor='rgba(47, 128, 237, 0.05)',
-        name="Grade", hovertemplate="%{customdata}<br>Grade: %{y:.1f}"
+        name="Grade", hovertemplate="<b>%{customdata[0]}</b><br>Grade: %{y:.1f}%{customdata[1]}<extra></extra>"
     ))
 
     # Mean Line (Golden)
@@ -822,7 +851,7 @@ def draw_progressive_chart(df_scores):
         line=dict(color="#10b981", width=3, shape='spline'),
         marker=dict(size=8, color="#10b981"),
         fill='tozeroy', fillcolor='rgba(16, 185, 129, 0.05)',
-        name="Progressive Passes p90", hovertemplate="%{customdata}<br>Progressive p90: %{y:.1f}"
+        name="Progressive Passes p90", hovertemplate="<b>%{customdata}</b><br>Progressive p90: %{y:.1f}<extra></extra>"
     ))
 
     # Mean Line (Golden)
@@ -854,7 +883,7 @@ def draw_final_third_chart(df_scores):
         line=dict(color="#8b5cf6", width=3, shape='spline'),
         marker=dict(size=8, color="#8b5cf6"),
         fill='tozeroy', fillcolor='rgba(139, 92, 246, 0.05)',
-        name="Final Third Passes p90", hovertemplate="%{customdata}<br>Final Third p90: %{y:.1f}"
+        name="Final Third Passes p90", hovertemplate="<b>%{customdata}</b><br>Final Third p90: %{y:.1f}<extra></extra>"
     ))
 
     # Mean Line (Golden)
@@ -886,7 +915,7 @@ def draw_xt_chart(df_scores):
         line=dict(color="#f59e0b", width=3, shape='spline'),
         marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy', fillcolor='rgba(245, 158, 11, 0.05)',
-        name="Σ ΔxT p90", hovertemplate="%{customdata}<br>Σ ΔxT p90: %{y:.2f}"
+        name="Σ ΔxT p90", hovertemplate="<b>%{customdata}</b><br>Σ ΔxT p90: %{y:.2f}<extra></extra>"
     ))
 
     # Mean Line (Golden)
