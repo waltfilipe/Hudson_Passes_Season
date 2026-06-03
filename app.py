@@ -1007,15 +1007,16 @@ with tab_graf:
 
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
-        st.markdown("### Stats Evolution")
-
-        # Chart 0: Total Passes p90 (Cyan) - New First Chart
-        fig_total = draw_total_passes_chart(df_scores)
-        st.plotly_chart(fig_total, use_container_width=True)
-
-        # Chart 1: General Grade (Blue)
+        # Chart 1: General Grade (Blue) - FIRST CHART
         fig_scores = draw_grade_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### Stats")
+
+        # Chart 0: Total Passes p90 (Cyan) - FIRST STAT CHART
+        fig_total = draw_total_passes_chart(df_scores)
+        st.plotly_chart(fig_total, use_container_width=True)
 
         # Chart 2: Progressive Passes (Green)
         fig_prog = draw_progressive_chart(df_scores)
