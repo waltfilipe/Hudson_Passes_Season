@@ -438,7 +438,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
             "progressive_attempted": 0, "progressive_successful": 0, "progressive_accuracy_pct": 0.0,
             "to_final_third_total": 0, "to_final_third_success": 0, "to_final_third_accuracy_pct": 0.0,
             "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
-            "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
+            "pos_count": 0, "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
             "total_p90": 0.0, "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0,
             "minutes": mins, "long_acc_pct": 0.0, "high_xt_p90": 0.0, "dz_p90": 0.0
         }
@@ -496,6 +496,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "fwd": fwd, "fwd_pct": round(fwd / total * 100.0, 1),
         "bwd": bwd, "bwd_pct": round(bwd / total * 100.0, 1),
         "lat": lat, "lat_pct": round(lat / total * 100.0, 1),
+        "pos_count": pos_count,
         "pos_pct": round(pos_pct, 1),
         "high_xt_pct": round(high_xt / total * 100.0, 1),
         "sum_dxt": round(sum_dxt, 3),
@@ -591,14 +592,17 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game=""
     )
     st.markdown(html, unsafe_allow_html=True)
 
-def summary_box(label, value, border="#3b82f6"):
+def summary_box(label, value, sub_value="", border="#3b82f6"):
     """A simplified metric box for overall stats without comparison arrows"""
+    sub_html = f'<div style="font-size: 12px; color: #64748b; margin-top: 4px;">{sub_value}</div>' if sub_value else ""
     html = (
         f'<div class="metric-box" style="border-left-color: {border};">'
         f'<div class="metric-title">{label}</div>'
         f'<div class="metric-value-row">'
         f'<span class="metric-value">{value}</span>'
-        f'</div></div>'
+        f'</div>'
+        f'{sub_html}'
+        f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
 
@@ -902,7 +906,6 @@ if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
 
 st.sidebar.markdown("---")
-st.sidebar.write(f"**{len(dfs_by_match)} matches collected**")
 
 # Calculate averages across all loaded matches globally
 num_matches = len(dfs_by_match)
@@ -911,7 +914,6 @@ all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 #
 # TABS & LAYOUT
 #
-# Reordenando para que Charts & Analysis seja a primeira página
 tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Evolution"])
 
 with tab_graf:
@@ -919,6 +921,12 @@ with tab_graf:
     
     if num_matches > 0:
         total_passes_all = sum(s['total_passes'] for s in all_match_stats)
+        total_succ_all = sum(s['successful_passes'] for s in all_match_stats)
+        total_prog_all = sum(s['progressive_successful'] for s in all_match_stats)
+        total_f3_all = sum(s['to_final_third_success'] for s in all_match_stats)
+        total_pos_all = sum(s['pos_count'] for s in all_match_stats)
+        total_xt_all = sum(s['sum_dxt'] for s in all_match_stats)
+
         avg_acc = sum(s['accuracy_pct'] for s in all_match_stats) / num_matches
         avg_prog_p90 = sum(s['prog_p90'] for s in all_match_stats) / num_matches
         avg_f3_p90 = sum(s['f3_p90'] for s in all_match_stats) / num_matches
@@ -928,18 +936,19 @@ with tab_graf:
         
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            row_label("📋 Overall Passes", "row-label-blue")
-            summary_box("Total Passes (All Matches)", f"{total_passes_all}", border=C_BLUE)
-            summary_box("Avg Passes p90", f"{avg_total_p90:.1f}", border=C_BLUE)
-            summary_box("Avg Successful %", f"{avg_acc:.1f}%", border=C_BLUE)
+            row_label("📋 Passes (Avg p90)", "row-label-blue")
+            summary_box("Passes p90", f"{avg_total_p90:.1f}", f"Total: {total_passes_all}", border=C_BLUE)
+            summary_box("Successful %", f"{avg_acc:.1f}%", f"Total: {total_succ_all}", border=C_BLUE)
         with col_s2:
-            row_label("📊 Advanced (Avg)", "row-label-green")
-            summary_box("Progressive p90", f"{avg_prog_p90:.1f}", border=C_GREEN)
-            summary_box("Final Third p90", f"{avg_f3_p90:.1f}", border=C_GREEN)
+            row_label("📊 Advanced (Avg p90)", "row-label-green")
+            summary_box("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}", border=C_GREEN)
+            summary_box("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}", border=C_GREEN)
         with col_s3:
-            row_label("⚡ xT (Avg)", "row-label-amber")
-            summary_box("% Positive ΔxT", f"{avg_pos_pct:.1f}%", border=C_AMBER)
-            summary_box("Σ ΔxT p90", f"{avg_xt_p90:.3f}", border=C_AMBER)
+            row_label("⚡ xT (Avg p90)", "row-label-amber")
+            summary_box("% Positive ΔxT", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
+            summary_box("Σ ΔxT p90", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
+            
+        st.markdown(f"<div style='text-align: right; color: #94a3b8; font-size: 14px; margin-top: 8px;'><b>{num_matches} matches collected</b></div>", unsafe_allow_html=True)
             
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -979,7 +988,6 @@ with tab_graf:
         st.warning("Not enough data to generate charts.")
 
 with tab_dash:
-    # Filtros movidos para dentro da aba Detailed Dashboard
     st.markdown("### Match Filters")
     col_f1, col_f2 = st.columns(2)
     with col_f1:
