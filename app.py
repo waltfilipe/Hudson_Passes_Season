@@ -48,6 +48,9 @@ C_BLUE = "#2F80ED"
 C_GREEN = "#10b981"
 C_AMBER = "#f59e0b"
 C_PURPLE_LIGHT = "#a78bfa"
+C_BLUE_PASTEL = "#5b9bd5"
+C_GREEN_PASTEL = "#70ad47"
+C_AMBER_PASTEL = "#d4a843"
 CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a", "#f97316", "#b91c1c"])
 NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 NX_XT, NY_XT = 16, 12
@@ -753,7 +756,6 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
     df_scores['total_p90_norm'] = normalize_fixed(df_scores['total_p90'], val_min=10.0, val_max=85.0)
     df_scores['neg_xt_norm'] = normalize_fixed(df_scores['neg_xt_p90'], val_min=-0.15, val_max=0.00)
 
-    # Pass Grade (75% of final)
     df_scores['Grade'] = (
         df_scores['xt_norm'] * 0.30 +
         df_scores['prog_norm'] * 0.20 +
@@ -763,7 +765,6 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         df_scores['neg_xt_norm'] * 0.10
     )
 
-    # Defensive bonus: match by team name
     if defensive_dfs_dict is not None:
         def_bonus_list = []
         duels_p90_list = []
@@ -820,7 +821,6 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         df_scores['duels_won_p90'] = 0.0
         df_scores['int_xt_avg'] = 0.0
 
-    # Save pass-only grade
     df_scores['pass_grade'] = df_scores['Grade'].round(1).copy()
 
     def _norm_def(s, lo, hi):
@@ -841,7 +841,6 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         df_scores['interceptions_p90_norm'] * 0.20
     ).round(1)
 
-    # FINAL GRADE: 75% passing, 25% defensive
     df_scores['Grade'] = (df_scores['pass_grade'] * 0.75 + df_scores['def_grade'] * 0.25).round(1)
 
     return df_scores
@@ -944,53 +943,57 @@ def _arrow_html(val_game: float, val_avg: float) -> str:
         pct = _safe_pct_diff(val_avg, val_game)
         return f'<span style="color:#E07070">↓ {pct:.0f}%</span>'
 
-def section_card(title_with_emoji, border_color, items):
+def section_card(title, border_color, items):
     """Styled card with colored title bar and stat items.
     items: list of (label, value) or (label, value, sub_value)"""
     html = f'<div style="background:#1e1e32;border:1px solid {border_color};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
-    html += f'<div style="background:{border_color};padding:8px 14px;font-size:14px;font-weight:600;color:#fff;">{title_with_emoji}</div>'
+    html += f'<div style="background:{border_color};padding:8px 14px;font-size:14px;font-weight:600;color:#fff;">{title}</div>'
     for item in items:
         label = item[0]
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
         html += f'<div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);">'
-        html += f'<div style="color:#a0a0b5;font-size:11px;">{label}</div>'
+        html += f'<div style="color:#c8c8d0;font-size:12px;">{label}</div>'
         html += f'<div style="color:#ffffff;font-size:18px;font-weight:600;">{value}</div>'
         if sub:
-            html += f'<div style="color:#6b6b80;font-size:11px;margin-top:1px;">{sub}</div>'
+            html += f'<div style="color:#7a7a90;font-size:11px;margin-top:1px;">{sub}</div>'
         html += '</div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
-def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, border="#3b82f6"):
-    disp_game = str(val_game) if disp_game is None else disp_game
-    disp_avg = str(val_avg) if disp_avg is None else disp_avg
-    arrow = _arrow_html(float(val_game), float(val_avg))
-    html = (
-        f'<div style="background:#1e1e32;border:1px solid {border};border-radius:10px;padding:12px 16px;margin-bottom:10px;">'
-        f'<div style="color:#a0a0b5;font-size:12px;margin-bottom:4px;">{label}</div>'
-        f'<div style="display:flex;align-items:baseline;gap:6px;">'
-        f'<span style="color:#ffffff;font-size:20px;font-weight:600;">{disp_game}</span>'
-        f'<span style="font-size:13px;font-weight:500;">{arrow}</span>'
-        f'</div>'
-        f'<div style="color:#6b6b80;font-size:11px;margin-top:2px;">AVG: {disp_avg}</div>'
-        f'</div>'
-    )
+def cmp_section_card(title, border_color, items):
+    """Styled card matching section_card format, with comparison arrows.
+    items: list of (label, game_val, avg_val) or (label, game_val, avg_val, disp_game, disp_avg)"""
+    html = f'<div style="background:#1e1e32;border:1px solid {border_color};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
+    html += f'<div style="background:{border_color};padding:8px 14px;font-size:14px;font-weight:600;color:#fff;">{title}</div>'
+    for item in items:
+        label = item[0]
+        val_game = item[1]
+        val_avg = item[2]
+        disp_game = item[3] if len(item) > 3 else str(val_game)
+        disp_avg = item[4] if len(item) > 4 else str(val_avg)
+        arrow = _arrow_html(float(val_game), float(val_avg))
+        html += f'<div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);">'
+        html += f'<div style="color:#c8c8d0;font-size:12px;">{label}</div>'
+        html += f'<div style="display:flex;align-items:baseline;gap:6px;">'
+        html += f'<span style="color:#ffffff;font-size:18px;font-weight:600;">{disp_game}</span>'
+        html += f'<span style="font-size:13px;font-weight:500;">{arrow}</span>'
+        html += f'</div>'
+        html += f'<div style="color:#7a7a90;font-size:11px;margin-top:1px;">AVG: {disp_avg}</div>'
+        html += '</div>'
+    html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 def summary_box(label, value, sub_value="", border="#3b82f6"):
     sub_html = f'<div style="color:#6b6b80;font-size:11px;margin-top:2px;">{sub_value}</div>' if sub_value else ""
     html = (
         f'<div style="background:#1e1e32;border:1px solid {border};border-radius:10px;padding:12px 16px;margin-bottom:10px;">'
-        f'<div style="color:#a0a0b5;font-size:12px;margin-bottom:4px;">{label}</div>'
+        f'<div style="color:#c8c8d0;font-size:12px;margin-bottom:4px;">{label}</div>'
         f'<div style="color:#ffffff;font-size:20px;font-weight:600;">{value}</div>'
         f'{sub_html}'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
-
-def row_label(text, cls="row-label-blue"):
-    st.markdown(f'<div style="color:#ffffff;font-size:14px;margin-bottom:6px;font-weight:500;">{text}</div>', unsafe_allow_html=True)
 
 # DRAW HELPERS (PITCH)
 def _base_pitch(bg="#1a1a2e"):
@@ -1154,8 +1157,6 @@ def draw_defensive_map(df):
     return _save_fig(fig), fig
 
 def draw_defensive_heatmap(df):
-    """Heatmap por corredores (esquerdo, central, direito).
-    Cada corredor mostra o total de ações defensivas e a % de sucesso duelo."""
     corridors = {
         "Left": (LANE_LEFT_MIN, FIELD_Y),
         "Center": (LANE_RIGHT_MAX, LANE_LEFT_MIN),
@@ -1289,9 +1290,9 @@ def draw_grade_chart(df_scores):
     fig.add_trace(go.Scatter(
         x=x_labels, y=y_pass_grade,
         mode='lines+markers',
-        line=dict(color="#2F80ED", width=1, dash='dot'),
-        marker=dict(size=5, color="#2F80ED", symbol='circle-open'),
-        opacity=0.35, name="Pass Grade (only)",
+        line=dict(color="#10b981", width=1, dash='dot'),
+        marker=dict(size=5, color="#10b981", symbol='circle-open'),
+        opacity=0.15, name="Pass Grade (only)",
         hovertemplate="%{x}<br>Pass Grade: %{y:.1f}"
     ))
     fig.add_trace(go.Scatter(
@@ -1299,7 +1300,7 @@ def draw_grade_chart(df_scores):
         mode='lines+markers',
         line=dict(color="#a78bfa", width=1, dash='dot'),
         marker=dict(size=5, color="#a78bfa", symbol='circle-open'),
-        opacity=0.35, name="Defensive Grade",
+        opacity=0.15, name="Defensive Grade",
         hovertemplate="%{x}<br>Defensive Grade: %{y:.1f}"
     ))
     fig.add_trace(go.Scatter(
@@ -1521,19 +1522,20 @@ with tab_graf:
         avg_xt_p90 = sum(s['xt_p90'] for s in all_match_stats) / num_matches
         avg_total_p90 = sum(s['total_p90'] for s in all_match_stats) / num_matches
 
+        st.markdown("### Passes")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            section_card("📋 Passes", C_BLUE, [
+            section_card("Overview", C_BLUE_PASTEL, [
                 ("Passes p90", f"{avg_total_p90:.1f}", f"Total: {total_passes_all}"),
                 ("Successful %", f"{avg_acc:.1f}%", f"Total: {total_succ_all}"),
             ])
         with col_s2:
-            section_card("📊 Advanced", C_GREEN, [
+            section_card("Advanced", C_GREEN_PASTEL, [
                 ("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}"),
                 ("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}"),
             ])
         with col_s3:
-            section_card("⚡ Pass Impact", C_AMBER, [
+            section_card("Impact", C_AMBER_PASTEL, [
                 ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}"),
                 ("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}"),
             ])
@@ -1556,19 +1558,20 @@ with tab_graf:
         avg_interceptions_p90 = sum(s['interceptions_p90'] for s in defensive_all_stats) / defensive_num_matches
         avg_int_att_p90 = sum(s['interceptions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
 
+        st.markdown("### Defensive Actions")
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
-            section_card("🛡️ General", C_BLUE, [
+            section_card("General", C_BLUE_PASTEL, [
                 ("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}"),
                 ("Def. Actions in Attack p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}"),
             ])
         with col_d2:
-            section_card("⚔️ Duels", C_GREEN, [
+            section_card("Duels", C_GREEN_PASTEL, [
                 ("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}"),
                 ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
             ])
         with col_d3:
-            section_card("👁️ Interceptions", C_AMBER, [
+            section_card("Interceptions", C_AMBER_PASTEL, [
                 ("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}"),
                 ("Interceptions in Attack p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
             ])
@@ -1667,29 +1670,32 @@ with tab_dash:
 
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
-            row_label("Pass Map", "row-label-blue"); st.image(img_pm_game, use_container_width=True)
+            st.image(img_pm_game, use_container_width=True)
         with col_m2:
-            row_label("Zone Heatmap", "row-label-green"); st.image(img_ht_game, use_container_width=True)
+            st.image(img_ht_game, use_container_width=True)
         with col_m3:
-            row_label("Top 5 Pass Impact", "row-label-amber"); st.image(img_xt_game, use_container_width=True)
+            st.image(img_xt_game, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            row_label("Pass Overview", "row-label-blue")
-            cmp_box("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}", border=C_BLUE)
-            cmp_box("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
-                    disp_game=f"{s_game['accuracy_pct']:.1f}%", disp_avg=f"{s_avg['accuracy_pct']:.1f}%", border=C_BLUE)
+            cmp_section_card("Pass Overview", C_BLUE_PASTEL, [
+                ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}"),
+                ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
+                 f"{s_game['accuracy_pct']:.1f}%", f"{s_avg['accuracy_pct']:.1f}%"),
+            ])
         with col_s2:
-            row_label("Advanced", "row-label-green")
-            cmp_box("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}", border=C_GREEN)
-            cmp_box("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}", border=C_GREEN)
+            cmp_section_card("Advanced", C_GREEN_PASTEL, [
+                ("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}"),
+                ("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}"),
+            ])
         with col_s3:
-            row_label("Pass Impact", "row-label-amber")
-            cmp_box("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
-                    disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER)
-            cmp_box("Σ Pass Impact", s_game["xt_p90"], s_avg["xt_p90"],
-                    disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
+            cmp_section_card("Impact", C_AMBER_PASTEL, [
+                ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
+                 f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%"),
+                ("Σ Pass Impact", s_game["xt_p90"], s_avg["xt_p90"],
+                 f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}"),
+            ])
 
     with sub_tab_def:
         st.markdown("### Match Filter")
@@ -1715,27 +1721,30 @@ with tab_dash:
 
         col_dm1, col_dm2, col_dm3 = st.columns(3)
         with col_dm1:
-            row_label("Defensive Actions Map", "row-label-blue"); st.image(img_def_map, use_container_width=True)
+            st.image(img_def_map, use_container_width=True)
         with col_dm2:
-            row_label("Defensive Corridor Heatmap", "row-label-green"); st.image(img_def_hm, use_container_width=True)
+            st.image(img_def_hm, use_container_width=True)
         with col_dm3:
-            row_label("xT Threat Map", "row-label-amber"); st.image(img_def_xt, use_container_width=True)
+            st.image(img_def_xt, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_ds1, col_ds2, col_ds3 = st.columns(3)
         with col_ds1:
-            row_label("General", "row-label-blue")
-            cmp_box("Defensive Actions p90", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}", border=C_BLUE)
-            cmp_box("Def. Actions in Attack p90", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}", border=C_BLUE)
+            cmp_section_card("General", C_BLUE_PASTEL, [
+                ("Defensive Actions p90", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}"),
+                ("Def. Actions in Attack p90", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
+            ])
         with col_ds2:
-            row_label("Duels", "row-label-green")
-            cmp_box("Defensive Duels p90", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}", border=C_GREEN)
-            cmp_box("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
-                    disp_game=f"{d_game['duels_won_pct']:.1f}%", disp_avg=f"{d_avg['duels_won_pct']:.1f}%", border=C_GREEN)
+            cmp_section_card("Duels", C_GREEN_PASTEL, [
+                ("Defensive Duels p90", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}"),
+                ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
+                 f"{d_game['duels_won_pct']:.1f}%", f"{d_avg['duels_won_pct']:.1f}%"),
+            ])
         with col_ds3:
-            row_label("Interceptions", "row-label-amber")
-            cmp_box("Interceptions p90", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}", border=C_AMBER)
-            cmp_box("Interceptions in Attack p90", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}", border=C_AMBER)
+            cmp_section_card("Interceptions", C_AMBER_PASTEL, [
+                ("Interceptions p90", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}"),
+                ("Interceptions in Attack p90", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
+            ])
 
 with tab_evo:
     sub_tab_evo_passes, sub_tab_evo_def = st.tabs(["Passes", "Defensive Actions"])
