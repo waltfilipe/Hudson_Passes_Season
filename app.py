@@ -1,4 +1,20 @@
-import re import os import math from pathlib import Path from io import BytesIO import streamlit as st import matplotlib matplotlib.use("Agg") import matplotlib.pyplot as plt from mplsoccer import Pitch import pandas as pd import numpy as np from PIL import Image from matplotlib.lines import Line2D from matplotlib.patches import FancyArrowPatch, Rectangle from matplotlib.colors import Normalize, LinearSegmentedColormap import plotly.graph_objects as go
+import re
+import os
+import math
+from pathlib import Path
+from io import BytesIO
+import streamlit as st
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from mplsoccer import Pitch
+import pandas as pd
+import numpy as np
+from PIL import Image
+from matplotlib.lines import Line2D
+from matplotlib.patches import FancyArrowPatch, Rectangle
+from matplotlib.colors import Normalize, LinearSegmentedColormap
+import plotly.graph_objects as go
 
 # PAGE CONFIG
 st.set_page_config(layout="wide", page_title="Hudson Cicala — Dashboard")
