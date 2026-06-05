@@ -439,7 +439,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
             "to_final_third_total": 0, "to_final_third_success": 0, "to_final_third_accuracy_pct": 0.0,
             "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
             "pos_count": 0, "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
-            "total_p90": 0.0, "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0,
+            "total_p90": 0.0, "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0, "neg_xt_p90": 0.0,
             "minutes": mins, "long_acc_pct": 0.0, "high_xt_p90": 0.0, "dz_p90": 0.0
         }
 
@@ -481,6 +481,9 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
 
     high_xt = int((df["delta_xt_adj"] > 0.1).sum())
     sum_dxt = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
+    
+    # Negative Pass Impact (passes that lost threat)
+    neg_xt = float(df.loc[df["is_won"] & (df["delta_xt_adj"] &lt; 0), "delta_xt_adj"].sum())
 
     return {
         "total_passes": total,
@@ -504,6 +507,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "prog_p90": round(progressive_total * p90_factor, 2),
         "f3_p90": round(to_final_third_success * p90_factor, 2),
         "xt_p90": round(sum_dxt * p90_factor, 3),
+        "neg_xt_p90": round(neg_xt * p90_factor, 3),
         "minutes": mins,
         "long_acc_pct": round(long_acc_pct, 1),
         "high_xt_p90": round(high_xt * p90_factor, 2),
@@ -523,6 +527,7 @@ def compute_match_scores(dfs_dict):
             'f3_p90': s['f3_p90'],
             'pos_pct': s['pos_pct'],
             'total_p90': s['total_p90'],
+            'neg_xt_p90': s['neg_xt_p90'],
             'accuracy_pct': s['accuracy_pct'],
             'long_acc_pct': s['long_acc_pct'],
             'high_xt_p90': s['high_xt_p90'],
@@ -532,25 +537,28 @@ def compute_match_scores(dfs_dict):
     df_scores = pd.DataFrame(records)
     if df_scores.empty: return df_scores
 
-    def normalize(series):
-        s_min, s_max = series.min(), series.max()
-        if s_max == s_min: return pd.Series([70.0] * len(series))
-        # Scale 40-100, midpoint is 70
-        return 40 + ((series - s_min) / (s_max - s_min)) * 60
+    # Absolute scale normalization with fixed floor and ceiling
+    def normalize_fixed(series, val_min, val_max):
+        clipped_series = series.clip(lower=val_min, upper=val_max)
+        if val_max == val_min: 
+            return pd.Series([70.0] * len(series))
+        return 40 + ((clipped_series - val_min) / (val_max - val_min)) * 60
 
-    df_scores['xt_norm'] = normalize(df_scores['xt_p90'])
-    df_scores['prog_norm'] = normalize(df_scores['prog_p90'])
-    df_scores['f3_norm'] = normalize(df_scores['f3_p90'])
-    df_scores['pos_pct_norm'] = normalize(df_scores['pos_pct'])
-    df_scores['total_p90_norm'] = normalize(df_scores['total_p90'])
+    # Apply absolute limits
+    df_scores['xt_norm'] = normalize_fixed(df_scores['xt_p90'], val_min=0.05, val_max=0.45)
+    df_scores['prog_norm'] = normalize_fixed(df_scores['prog_p90'], val_min=1.0, val_max=15.0)
+    df_scores['f3_norm'] = normalize_fixed(df_scores['f3_p90'], val_min=1.0, val_max=15.0)
+    df_scores['pos_pct_norm'] = normalize_fixed(df_scores['pos_pct'], val_min=25.0, val_max=75.0)
+    df_scores['total_p90_norm'] = normalize_fixed(df_scores['total_p90'], val_min=10.0, val_max=85.0)
+    df_scores['neg_xt_norm'] = normalize_fixed(df_scores['neg_xt_p90'], val_min=-0.15, val_max=0.00)
 
-    # Weights applied to p90 metrics (Total = 100%)
-    # xT(45%), Prog(25%), F3(20%), Pos_xT(5%), Total_p90(5%)
-    df_scores['Grade'] = (df_scores['xt_norm'] * 0.45) + \
-                         (df_scores['prog_norm'] * 0.25) + \
+    # Weights
+    df_scores['Grade'] = (df_scores['xt_norm'] * 0.30) + \
+                         (df_scores['prog_norm'] * 0.20) + \
                          (df_scores['f3_norm'] * 0.20) + \
-                         (df_scores['pos_pct_norm'] * 0.05) + \
-                         (df_scores['total_p90_norm'] * 0.05)
+                         (df_scores['pos_pct_norm'] * 0.10) + \
+                         (df_scores['total_p90_norm'] * 0.10) + \
+                         (df_scores['neg_xt_norm'] * 0.10)
     df_scores['Grade'] = df_scores['Grade'].round(1)
     return df_scores
 
@@ -728,7 +736,7 @@ def draw_top5_xt_map(df):
 
         sm = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
         cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
-        cbar.set_label("ΔxT", color="#ffffff", fontsize=8)
+        cbar.set_label("Pass Impact", color="#ffffff", fontsize=8)
         cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
         plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
 
@@ -736,24 +744,81 @@ def draw_top5_xt_map(df):
     return _save_fig(fig), fig
 
 #
-# PLOTLY CHARTS (Modern & Interactive)
+# PLOTLY CHARTS
 #
+def draw_total_passes_chart(df_scores):
+    fig = go.Figure()
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
+    y = df_scores["total_p90"]
+    mean_val = y.mean()
+
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        line=dict(color="#00d2ff", width=3, shape='spline'),
+        marker=dict(size=8, color="#00d2ff"),
+        fill='tozeroy', fillcolor='rgba(0, 210, 255, 0.05)',
+        name="Total Passes", hovertemplate="<b>%{customdata}</b><br>Total Passes: %{y:.1f}<extra></extra>"
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_val]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'),
+        name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
+    ))
+
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        title=dict(text="Total Passes", font=dict(size=14, color="#a0a0b5"))
+    )
+    return fig
+
 def draw_grade_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["Grade"]
     mean_grade = y.mean()
 
-    # Grade Line (Blue)
+    # Metrics for Tooltip Feature
+    metrics = {
+        'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
+        'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
+        'Final 3rd': ('f3_p90', df_scores['f3_p90'].mean()),
+        '% Pos Impact': ('pos_pct', df_scores['pos_pct'].mean()),
+        'Total Passes': ('total_p90', df_scores['total_p90'].mean())
+    }
+    
+    hover_texts = []
+    for _, row in df_scores.iterrows():
+        diffs = {}
+        for name, (col, avg) in metrics.items():
+            if avg == 0:
+                diffs[name] = 0
+            else:
+                diffs[name] = ((row[col] - avg) / avg) * 100
+        
+        if row['Grade'] >= mean_grade:
+            best_metric = max(diffs, key=diffs.get)
+            val = diffs[best_metric]
+            hover_texts.append(f"<br><span style='font-size:11px; color:#94a3b8'>Highlight:</span> <b>{best_metric}</b> <span style='color:#10b981'>(+{val:.1f}%)</span>")
+        else:
+            worst_metric = min(diffs, key=diffs.get)
+            val = diffs[worst_metric]
+            hover_texts.append(f"<br><span style='font-size:11px; color:#94a3b8'>Issue:</span> <b>{worst_metric}</b> <span style='color:#ef4444'>({val:.1f}%)</span>")
+            
+    customdata = np.stack((df_scores["match"], hover_texts), axis=-1)
+
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        x=x_labels, y=y, customdata=customdata, mode='lines+markers',
         line=dict(color="#2F80ED", width=3, shape='spline'),
         marker=dict(size=8, color="#2F80ED"),
         fill='tozeroy', fillcolor='rgba(47, 128, 237, 0.05)',
-        name="Grade", hovertemplate="%{customdata}<br>Grade: %{y:.1f}"
+        name="Grade", hovertemplate="<b>%{customdata[0]}</b><br>Grade: %{y:.1f}%{customdata[1]}<extra></extra>"
     ))
 
-    # Mean Line (Golden)
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_grade]*len(x_labels), mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
@@ -776,16 +841,14 @@ def draw_progressive_chart(df_scores):
     y = df_scores["prog_p90"]
     mean_prog = y.mean()
 
-    # Progressive Line (Green)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
         line=dict(color="#10b981", width=3, shape='spline'),
         marker=dict(size=8, color="#10b981"),
         fill='tozeroy', fillcolor='rgba(16, 185, 129, 0.05)',
-        name="Progressive Passes p90", hovertemplate="%{customdata}<br>Progressive p90: %{y:.1f}"
+        name="Progressive Passes", hovertemplate="<b>%{customdata}</b><br>Progressive: %{y:.1f}<extra></extra>"
     ))
 
-    # Mean Line (Golden)
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_prog]*len(x_labels), mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
@@ -798,7 +861,7 @@ def draw_progressive_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Progressive Passes p90", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
@@ -808,16 +871,14 @@ def draw_final_third_chart(df_scores):
     y = df_scores["f3_p90"]
     mean_f3 = y.mean()
 
-    # Final Third Line (Purple)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
         line=dict(color="#8b5cf6", width=3, shape='spline'),
         marker=dict(size=8, color="#8b5cf6"),
         fill='tozeroy', fillcolor='rgba(139, 92, 246, 0.05)',
-        name="Final Third Passes p90", hovertemplate="%{customdata}<br>Final Third p90: %{y:.1f}"
+        name="Final Third Passes", hovertemplate="<b>%{customdata}</b><br>Final Third: %{y:.1f}<extra></extra>"
     ))
 
-    # Mean Line (Golden)
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_f3]*len(x_labels), mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
@@ -830,7 +891,7 @@ def draw_final_third_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Final Third Passes p90", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Final Third Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
@@ -840,16 +901,14 @@ def draw_xt_chart(df_scores):
     y = df_scores["xt_p90"]
     mean_xt = y.mean()
 
-    # xT Line (Amber)
     fig.add_trace(go.Scatter(
         x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
         line=dict(color="#f59e0b", width=3, shape='spline'),
         marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy', fillcolor='rgba(245, 158, 11, 0.05)',
-        name="Σ ΔxT p90", hovertemplate="%{customdata}<br>Σ ΔxT p90: %{y:.2f}"
+        name="Σ Pass Impact", hovertemplate="<b>%{customdata}</b><br>Σ Pass Impact: %{y:.2f}<extra></extra>"
     ))
 
-    # Mean Line (Golden)
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_xt]*len(x_labels), mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
@@ -862,13 +921,12 @@ def draw_xt_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Σ ΔxT p90 (Expected Threat)", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Σ Pass Impact", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
 def draw_comparison_bar(title, val_first, val_last, suffix=""):
     """Helper function to draw clean comparison bars for Evolution tab"""
-    # Color logic: Green if improved/maintained, Red if worsened
     color_last = "#10b981" if val_last >= val_first else "#E07070"
 
     fig = go.Figure()
@@ -878,7 +936,7 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
         marker_color=["#444466", color_last],
         text=[f"{val_first:.2f}{suffix}", f"{val_last:.2f}{suffix}"],
         textposition='auto',
-        width=[0.35, 0.35], # Makes bars thinner
+        width=[0.35, 0.35],
         hovertemplate="%{x}<br>" + title + ": %{y:.2f}" + suffix + "<extra></extra>"
     ))
 
@@ -889,7 +947,7 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
         xaxis=dict(showgrid=False, zeroline=False),
         title=dict(text=title, font=dict(size=14, color="#a0a0b5")),
         showlegend=False,
-        bargap=0.2 # Brings bars closer together
+        bargap=0.2
     )
     return fig
 
@@ -900,7 +958,7 @@ st.sidebar.title("Pass Dashboard")
 st.sidebar.markdown("### 2026 Matches")
 st.sidebar.markdown("#### Hudson Cicala")
 
-# Adiciona a imagem se existir, usando a largura total para deixá-la maior
+# Add image if exists
 img_path = "Captura de tela 2026-06-02 154425.png"
 if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
@@ -944,44 +1002,48 @@ with tab_graf:
             summary_box("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}", border=C_GREEN)
             summary_box("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}", border=C_GREEN)
         with col_s3:
-            row_label("⚡ xT (Avg p90)", "row-label-amber")
-            summary_box("% Positive ΔxT", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
-            summary_box("Σ ΔxT p90", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
+            row_label("⚡ Pass Impact (Avg p90)", "row-label-amber")
+            summary_box("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
+            summary_box("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
             
         st.markdown(f"<div style='text-align: right; color: #94a3b8; font-size: 14px; margin-top: 8px;'><b>{num_matches} matches collected</b></div>", unsafe_allow_html=True)
             
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    with st.expander("How is the Grade calculated?"):
-        st.markdown("""
-        We use *Min-Max Normalization* comparing each match's performance against the extremes of all loaded matches. This ensures the grade reflects the player's true context.
-        
-        **Metrics evaluated (Normalized per 90 mins):**
-        - **Total xT p90:** Measures the actual danger generated by successful passes.
-        - **Progressive Passes p90:** Measures the intent and ability to break opponent lines.
-        - **Final Third Passes p90:** Measures territorial aggressiveness and attacking presence.
-        - **% Positive ΔxT:** Measures the efficiency of positive threat generation.
-        - **Total Passes p90:** Measures overall involvement in the game.
-        """)
 
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
-        # Chart 1: General Grade (Blue)
+        # Chart 1: General Grade (Blue) - FIRST CHART
         fig_scores = draw_grade_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### Stats Evolution")
+        # Grade explanation expander - NOW BELOW the grade chart, simplified text
+        with st.expander("How is the Grade calculated?"):
+            st.markdown("""
+            **Metrics evaluated:**
+            - **Pass Impact:** Measures actual danger created by passes.
+            - **Progressive Passes:** Line-breaking ability.
+            - **Final Third Passes:** Attacking presence in dangerous zones.
+            - **% Positive Pass Impact:** Efficiency of threat generation.
+            - **Total Passes:** Overall involvement.
+            - **Negative Pass Impact:** Penalty for passes that lose threat.
+            """)
 
-        # Chart 2: Progressive Passes (Green)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### Stats")
+
+        # Chart: Total Passes (Cyan)
+        fig_total = draw_total_passes_chart(df_scores)
+        st.plotly_chart(fig_total, use_container_width=True)
+
+        # Chart: Progressive Passes (Green)
         fig_prog = draw_progressive_chart(df_scores)
         st.plotly_chart(fig_prog, use_container_width=True)
 
-        # Chart 3: Final Third Passes (Purple)
+        # Chart: Final Third Passes (Purple)
         fig_f3 = draw_final_third_chart(df_scores)
         st.plotly_chart(fig_f3, use_container_width=True)
 
-        # Chart 4: xT (Amber)
+        # Chart: Σ Pass Impact (Amber)
         fig_xt = draw_xt_chart(df_scores)
         st.plotly_chart(fig_xt, use_container_width=True)
     else:
@@ -1036,7 +1098,7 @@ with tab_dash:
         row_label(f"🟩 Zone Heatmap", "row-label-green")
         st.image(img_ht_game, use_container_width=True)
     with col_m3:
-        row_label(f"🟡 Top 5 ΔxT", "row-label-amber")
+        row_label(f"🟡 Top 5 Pass Impact", "row-label-amber")
         st.image(img_xt_game, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1045,20 +1107,20 @@ with tab_dash:
     col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
         row_label("📋 Pass Overview", "row-label-blue")
-        cmp_box("Total Passes p90", s_game["total_p90"], f"{s_avg['total_p90']:.1f}", border=C_BLUE)
+        cmp_box("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}", border=C_BLUE)
         cmp_box("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"], 
                 disp_game=f"{s_game['accuracy_pct']:.1f}%", disp_avg=f"{s_avg['accuracy_pct']:.1f}%", border=C_BLUE)
 
     with col_s2:
         row_label("📊 Advanced", "row-label-green")
-        cmp_box("Progressive p90", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}", border=C_GREEN)
-        cmp_box("Final Third p90", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}", border=C_GREEN)
+        cmp_box("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}", border=C_GREEN)
+        cmp_box("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}", border=C_GREEN)
 
     with col_s3:
-        row_label("⚡ xT", "row-label-amber")
-        cmp_box("% Positive ΔxT", s_game["pos_pct"], s_avg["pos_pct"], 
+        row_label("⚡ Pass Impact", "row-label-amber")
+        cmp_box("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"], 
                 disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER)
-        cmp_box("Σ ΔxT p90", s_game["xt_p90"], f"{s_avg['xt_p90']:.3f}", 
+        cmp_box("Σ Pass Impact", s_game["xt_p90"], f"{s_avg['xt_p90']:.3f}", 
                 disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
 
 with tab_evo:
@@ -1073,29 +1135,29 @@ with tab_evo:
         first_9 = df_scores.head(9)
         last_9 = df_scores.tail(9)
 
-        # Layout 3x3 as requested
+        # Layout 3x3
         # Row 1
         r1c1, r1c2, r1c3 = st.columns(3)
         with r1c1:
             fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
             st.plotly_chart(fig_grade, use_container_width=True)
         with r1c2:
-            fig_xt_evo = draw_comparison_bar("Σ ΔxT p90", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
+            fig_xt_evo = draw_comparison_bar("Σ Pass Impact", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
             st.plotly_chart(fig_xt_evo, use_container_width=True)
         with r1c3:
-            fig_high_xt_evo = draw_comparison_bar("High xT Passes (>0.1) p90", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
+            fig_high_xt_evo = draw_comparison_bar("High Impact Passes", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
             st.plotly_chart(fig_high_xt_evo, use_container_width=True)
 
         # Row 2
         r2c1, r2c2, r2c3 = st.columns(3)
         with r2c1:
-            fig_prog_evo = draw_comparison_bar("Progressive Passes p90", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
+            fig_prog_evo = draw_comparison_bar("Progressive Passes", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
             st.plotly_chart(fig_prog_evo, use_container_width=True)
         with r2c2:
-            fig_f3_evo = draw_comparison_bar("Final Third Passes p90", first_9["f3_p90"].mean(), last_9["f3_p90"].mean())
+            fig_f3_evo = draw_comparison_bar("Final Third Passes", first_9["f3_p90"].mean(), last_9["f3_p90"].mean())
             st.plotly_chart(fig_f3_evo, use_container_width=True)
         with r2c3:
-            fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes p90", first_9["dz_p90"].mean(), last_9["dz_p90"].mean())
+            fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes", first_9["dz_p90"].mean(), last_9["dz_p90"].mean())
             st.plotly_chart(fig_dz_evo, use_container_width=True)
 
         # Row 3
@@ -1104,10 +1166,10 @@ with tab_evo:
             fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%")
             st.plotly_chart(fig_acc_evo, use_container_width=True)
         with r3c2:
-            fig_long_evo = draw_comparison_bar("Long Pass Accuracy % (>25m)", first_9["long_acc_pct"].mean(), last_9["long_acc_pct"].mean(), suffix="%")
+            fig_long_evo = draw_comparison_bar("Long Pass Accuracy %", first_9["long_acc_pct"].mean(), last_9["long_acc_pct"].mean(), suffix="%")
             st.plotly_chart(fig_long_evo, use_container_width=True)
         with r3c3:
-            fig_prog_acc_evo = draw_comparison_bar("Progressive Pass Accuracy %", first_9["prog_acc_pct"].mean(), last_9["prog_acc_pct"].mean(), suffix="%")
+            fig_prog_acc_evo = draw_comparison_bar("Progressive Accuracy %", first_9["prog_acc_pct"].mean(), last_9["prog_acc_pct"].mean(), suffix="%")
             st.plotly_chart(fig_prog_acc_evo, use_container_width=True)
     else:
         st.warning("Not enough data to generate evolution charts.")
