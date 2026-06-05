@@ -970,7 +970,7 @@ def summary_box(label, value, sub_value="", border="#3b82f6"):
     st.markdown(html, unsafe_allow_html=True)
 
 def row_label(text, cls="row-label-blue"):
-    st.markdown(f'<div style="color:#a0a0b5;font-size:12px;margin-bottom:6px;font-weight:500;">{text}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#ffffff;font-size:14px;margin-bottom:6px;font-weight:500;">{text}</div>', unsafe_allow_html=True)
 
 # DRAW HELPERS (PITCH)
 def _base_pitch(bg="#1a1a2e"):
@@ -1134,55 +1134,44 @@ def draw_defensive_map(df):
     return _save_fig(fig), fig
 
 def draw_defensive_heatmap(df):
-    """Heatmap dividido por corredores (esquerdo, central, direito).
-    Cada célula mostra: número total de ações (duelos + interceptações)
-    e % de vitória (duelos vencidos / total de duelos)."""
-    x_bins = np.linspace(0.0, FIELD_X, 7)
+    """Heatmap por corredores (esquerdo, central, direito).
+    Cada corredor mostra o total de ações defensivas e a % de sucesso duelo."""
     corridors = {
         "Left": (LANE_LEFT_MIN, FIELD_Y),
         "Center": (LANE_RIGHT_MAX, LANE_LEFT_MIN),
         "Right": (0.0, LANE_RIGHT_MAX),
     }
-    cells = {}
+    corridor_data = {}
     for cname, (y0, y1) in corridors.items():
-        for i in range(6):
-            x0_, x1_ = x_bins[i], x_bins[i + 1]
-            mask = (df["x"] >= x0_) & (df["x"] < x1_) & (df["y"] >= y0) & (df["y"] < y1)
-            cell_df = df[mask]
-            total = len(cell_df)
-            duels_total = int(cell_df["is_duel"].sum())
-            duels_won = int(cell_df["is_duel_won"].sum())
-            cells[(cname, i)] = {"count": total, "duels_won": duels_won, "duels_total": duels_total}
-    all_counts = [v["count"] for v in cells.values()]
+        mask = (df["y"] >= y0) & (df["y"] < y1)
+        corr_df = df[mask]
+        total = len(corr_df)
+        duels_total = int(corr_df["is_duel"].sum())
+        duels_won = int(corr_df["is_duel_won"].sum())
+        corridor_data[cname] = {"count": total, "duels_won": duels_won, "duels_total": duels_total}
+    all_counts = [d["count"] for d in corridor_data.values()]
     vmax = max(1, max(all_counts))
     cmap_def = LinearSegmentedColormap.from_list("def_corr", ["#ffffff", "#dbeafe", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e3a5f"])
     norm = Normalize(vmin=0, vmax=vmax)
     threshold = max(1, vmax * 0.35)
     fig, ax, pitch = _base_pitch()
     for cname, (y0, y1) in corridors.items():
-        for i in range(6):
-            x0_, x1_ = x_bins[i], x_bins[i + 1]
-            d = cells[(cname, i)]
-            value = d["count"]
-            ax.add_patch(Rectangle((x0_, y0), x1_ - x0_, y1 - y0,
-                                   facecolor=cmap_def(norm(value)),
-                                   edgecolor=(1, 1, 1, 0.12), lw=0.5, alpha=0.95, zorder=2))
-            duel_pct = (d["duels_won"] / d["duels_total"] * 100) if d["duels_total"] > 0 else None
-            if duel_pct is not None:
-                label = f"{value}\n{d['duels_won']}/{d['duels_total']} ({duel_pct:.0f}%)"
-            else:
-                label = str(value)
-            ax.text((x0_ + x1_) / 2, (y0 + y1) / 2, label,
-                    ha="center", va="center",
-                    color="#000000" if value <= threshold else "#ffffff",
-                    fontsize=7, fontweight="600", zorder=4)
-    # Linhas divisórias dos corredores
+        d = corridor_data[cname]
+        value = d["count"]
+        ax.add_patch(Rectangle((0, y0), FIELD_X, y1 - y0,
+                               facecolor=cmap_def(norm(value)),
+                               edgecolor=(1, 1, 1, 0.15), lw=0.5, alpha=0.95, zorder=2))
+        duel_pct = (d["duels_won"] / d["duels_total"] * 100) if d["duels_total"] > 0 else None
+        if duel_pct is not None:
+            label = f"{cname}\nTotal: {value}\nWon: {d['duels_won']}/{d['duels_total']} ({duel_pct:.0f}%)"
+        else:
+            label = f"{cname}\nTotal: {value}"
+        ax.text(FIELD_X / 2, (y0 + y1) / 2, label,
+                ha="center", va="center",
+                color="#000000" if value <= threshold else "#ffffff",
+                fontsize=9, fontweight="600", zorder=4)
     ax.axhline(y=LANE_LEFT_MIN, color="#ffffff", lw=0.5, alpha=0.20, linestyle="--", zorder=3)
     ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.5, alpha=0.20, linestyle="--", zorder=3)
-    # Rótulos dos corredores no lado esquerdo
-    for cname, (y0, y1) in corridors.items():
-        ax.text(-0.5, (y0 + y1) / 2, cname, ha="right", va="center",
-                color="#ffffff", fontsize=7, fontweight="500", alpha=0.7, zorder=5)
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
@@ -1294,7 +1283,7 @@ def draw_grade_chart(df_scores):
         yaxis=dict(range=[40, 100], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Grade Evolution", font=dict(size=14, color="#ffffff"))
+        title=dict(text="Combined Grade", font=dict(size=14, color="#ffffff"))
     )
     return fig
 
@@ -1472,7 +1461,7 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
     return fig
 
 # SIDEBAR
-st.sidebar.title("Pass Dashboard")
+st.sidebar.title("Stats Dashboard")
 st.sidebar.markdown("### 2026 Matches")
 st.sidebar.markdown("#### Hudson Cicala")
 img_path = "Captura de tela 2026-06-02 154425.png"
@@ -1502,22 +1491,21 @@ with tab_graf:
         avg_xt_p90 = sum(s['xt_p90'] for s in all_match_stats) / num_matches
         avg_total_p90 = sum(s['total_p90'] for s in all_match_stats) / num_matches
 
-        st.markdown("### 📋 Passes")
+        st.markdown("### Passes")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            row_label("📋 Passes (Avg p90)", "row-label-blue")
+            row_label("Passes")
             summary_box("Passes p90", f"{avg_total_p90:.1f}", f"Total: {total_passes_all}", border=C_BLUE)
             summary_box("Successful %", f"{avg_acc:.1f}%", f"Total: {total_succ_all}", border=C_BLUE)
         with col_s2:
-            row_label("📊 Advanced (Avg p90)", "row-label-green")
+            row_label("Advanced")
             summary_box("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}", border=C_GREEN)
             summary_box("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}", border=C_GREEN)
         with col_s3:
-            row_label("⚡ Pass Impact (Avg p90)", "row-label-amber")
+            row_label("Pass Impact")
             summary_box("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
             summary_box("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
 
-        st.markdown(f"{num_matches} matches collected", unsafe_allow_html=True)
         st.markdown("", unsafe_allow_html=True)
 
     defensive_num_matches = len(defensive_dfs_by_match)
@@ -1535,26 +1523,27 @@ with tab_graf:
         avg_interceptions_p90 = sum(s['interceptions_p90'] for s in defensive_all_stats) / defensive_num_matches
         avg_int_att_p90 = sum(s['interceptions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
 
-        st.markdown("### 🛡️ Defensive Actions")
+        st.markdown("### Defensive Actions")
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
-            row_label("🛡️ General", "row-label-blue")
+            row_label("🛡️ General")
             summary_box("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}", border=C_BLUE)
             summary_box("Def. Actions in Attack p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}", border=C_BLUE)
         with col_d2:
-            row_label("⚔️ Duels", "row-label-green")
+            row_label("⚔️ Duels")
             summary_box("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}", border=C_GREEN)
             summary_box("% Duels Won", f"{avg_duels_won_pct:.1f}%", border=C_GREEN)
         with col_d3:
-            row_label("👁️ Interceptions", "row-label-amber")
+            row_label("👁️ Interceptions")
             summary_box("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}", border=C_AMBER)
             summary_box("Interceptions in Attack p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}", border=C_AMBER)
 
-        st.markdown(f"{defensive_num_matches} matches collected", unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:right;color:#6b6b80;font-size:12px;margin-top:8px;">{num_matches} matches collected</div>', unsafe_allow_html=True)
         st.markdown("", unsafe_allow_html=True)
 
     df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match)
     if not df_scores.empty:
+        st.markdown("### Grade per Match")
         fig_scores = draw_grade_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
 
@@ -1729,7 +1718,7 @@ with tab_evo:
 
             r1c1, r1c2, r1c3 = st.columns(3)
             with r1c1:
-                fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
+                fig_grade = draw_comparison_bar("Grade de Passes", first_9["Grade"].mean(), last_9["Grade"].mean())
                 st.plotly_chart(fig_grade, use_container_width=True)
             with r1c2:
                 fig_xt_evo = draw_comparison_bar("Σ Pass Impact", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
@@ -1781,7 +1770,7 @@ with tab_evo:
                 g2 = last_9_def["grade"].dropna()
                 v1 = g1.mean() if len(g1) > 0 else 0
                 v2 = g2.mean() if len(g2) > 0 else 0
-                fig_grade_def = draw_comparison_bar("Grade", v1, v2)
+                fig_grade_def = draw_comparison_bar("Grade de Defensive Actions", v1, v2)
                 st.plotly_chart(fig_grade_def, use_container_width=True)
             with rd1c2:
                 fig_duels_won = draw_comparison_bar("Duels Won p90", first_9_def["duels_won_p90"].mean(), last_9_def["duels_won_p90"].mean())
