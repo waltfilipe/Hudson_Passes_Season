@@ -20,7 +20,7 @@ import plotly.graph_objects as go
 #
 # PAGE CONFIG
 #
-st.set_page_config(layout="wide", page_title="Hudson Cicala — Pass Dashboard")
+st.set_page_config(layout="wide", page_title="Hudson Cicala — Pass & Defense Dashboard")
 
 #
 # OPTIONAL DOCX IMPORT
@@ -56,6 +56,10 @@ st.markdown("""
         text-transform: uppercase; letter-spacing: 1px;
         margin-bottom: 8px; border-bottom: 1px solid #7f1d1d; padding-bottom: 4px;
     }
+    .section-subtitle {
+        font-size: 16px; font-weight: 700;
+        padding-bottom: 6px; margin-bottom: 12px; margin-top: 4px;
+    }
     .metric-box {
         background: #1a1a2e; border-radius: 8px; padding: 12px 16px;
         margin-bottom: 12px; border-left: 4px solid #3b82f6;
@@ -68,6 +72,9 @@ st.markdown("""
     .arrow-up { color: #10b981; background: rgba(16, 185, 129, 0.15); }
     .arrow-down { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
     .metric-sub { font-size: 11px; color: #64748b; margin-top: 4px; display: flex; justify-content: space-between; }
+    div[data-testid="stTabs"] button {
+        font-size: 14px !important; font-weight: 600 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -103,9 +110,109 @@ D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 
 #
-# DEFENSIVE DATA STRUCTURE (ready to receive coordinates)
+# MATCH ORDER (18 games, chronological)
 #
-DEFENSIVE_DATA = {}
+MATCH_ORDER = [
+    "Game 1", "Game 2", "Game 3", "Game 4", "Game 5",
+    "Connecticut United (03-27)", "Nashville SC (03-28)", "Seongnam FC (03-29)", "NY Red Bulls (03-31)",
+    "Game 6", "Game 7", "Game 8", "Game 9", "Game 10", "Game 11", "Game 12", "Game 13", "Game 14"
+]
+
+#
+# DEFENSIVE DATA — CORRECTLY MAPPED per user's last message
+#
+DEFENSIVE_DATA = {
+    "Game 1": {  # Michigan Wolves
+        "duels_won": [(53.85, 25.21), (23.59, 29.69), (43.88, 50.31), (16.28, 50.47), (15.62, 72.08)],
+        "duels_lost": [(73.63, 27.70), (17.78, 75.41)],
+        "interceptions": [(65.82, 19.05), (72.80, 57.62)]
+    },
+    "Game 2": {  # Philadelphia Union
+        "duels_won": [(67.98, 34.68), (41.05, 23.54), (21.27, 31.36), (39.55, 60.95)],
+        "duels_lost": [(29.08, 40.50)],
+        "interceptions": [(53.52, 19.05), (28.08, 27.03), (29.75, 53.63), (30.58, 69.42), (52.19, 58.12), (59.17, 63.11), (80.78, 68.92)]
+    },
+    "Game 3": {  # Columbus Crew
+        "duels_won": [(22.76, 29.69), (48.36, 20.72)],
+        "duels_lost": [(63.32, 56.96), (25.42, 53.63), (27.42, 34.35), (35.06, 36.84)],
+        "interceptions": [(29.75, 35.84), (29.41, 40.00), (37.39, 60.95)]
+    },
+    "Game 4": {  # Minnesota United (03-13)
+        "duels_won": [(44.04, 58.95), (14.78, 18.56), (17.61, 12.24)],
+        "duels_lost": [(77.29, 27.20), (39.89, 3.43), (33.24, 10.91), (35.90, 57.12), (0.99, 69.26)],
+        "interceptions": [(31.74, 38.50), (35.06, 36.34), (38.39, 41.00), (46.54, 26.37), (40.38, 19.22)]
+    },
+    "Game 5": {  # Vardar Soccer — no duels, only interceptações
+        "duels_won": [],
+        "duels_lost": [],
+        "interceptions": [(72.63, 35.18), (12.29, 44.99)]
+    },
+    "Game 6": {  # Colorado Rapids
+        "duels_won": [(36.39, 73.75), (39.39, 68.76), (52.02, 66.10), (21.60, 53.63), (35.06, 43.32), (36.39, 31.36), (45.54, 25.04), (34.40, 21.71), (53.68, 17.23), (57.67, 22.55)],
+        "duels_lost": [(78.95, 4.59), (75.46, 65.43), (33.07, 54.46)],
+        "interceptions": [(67.31, 9.58), (39.89, 24.54), (43.38, 28.86), (27.92, 35.01), (64.49, 53.80), (36.56, 55.96), (30.58, 62.11)]
+    },
+    "Connecticut United (03-27)": {
+        "duels_won": [(82.94, 3.43), (70.47, 21.05), (67.31, 27.53), (27.58, 32.52)],
+        "duels_lost": [(65.49, 22.71), (3.48, 72.42)],
+        "interceptions": [(82.28, 31.02), (66.15, 26.04), (83.94, 56.29), (59.00, 61.44)]
+    },
+    "Nashville SC (03-28)": {
+        "duels_won": [(84.77, 54.79), (62.33, 55.46), (35.90, 62.61), (40.38, 70.09), (40.38, 40.33), (26.92, 23.71)],
+        "duels_lost": [(92.91, 24.54), (90.59, 53.63), (64.82, 59.78), (51.02, 71.58)],
+        "interceptions": [(85.60, 23.38), (65.65, 57.12), (77.45, 61.78)]
+    },
+    "Seongnam FC (03-29)": {
+        "duels_won": [],
+        "duels_lost": [(73.80, 21.71)],
+        "interceptions": [(38.06, 30.36)]
+    },
+    "NY Red Bulls (03-31)": {
+        "duels_won": [(33.87, 59.39), (37.58, 67.14)],
+        "duels_lost": [(66.32, 60.28)],
+        "interceptions": [(34.90, 34.02), (56.34, 42.66), (68.15, 54.30)]
+    },
+    "Game 7": {  # Minnesota United (04-10)
+        "duels_won": [(15.62, 54.30)],
+        "duels_lost": [(36.39, 39.34), (10.79, 64.27)],
+        "interceptions": [(66.15, 68.59), (25.42, 54.79), (35.06, 48.15), (22.76, 21.88), (56.84, 25.87), (82.11, 20.72)]
+    },
+    "Game 8": {  # Sporting Kansas City
+        "duels_won": [(85.43, 17.06), (76.12, 20.72), (54.68, 12.07), (53.18, 24.87), (24.92, 34.35), (31.24, 49.64), (39.05, 52.14), (43.71, 62.61), (49.69, 73.25), (75.79, 62.77)],
+        "duels_lost": [(30.24, 69.09)],
+        "interceptions": [(60.83, 15.40), (10.79, 25.87), (52.35, 52.97), (70.14, 61.28), (54.85, 62.11), (39.89, 66.60)]
+    },
+    "Game 9": {  # Cedar Stars
+        "duels_won": [(9.30, 22.88), (59.00, 15.06), (60.83, 44.65)],
+        "duels_lost": [],
+        "interceptions": [(75.46, 28.20), (79.95, 57.29), (27.09, 66.43)]
+    },
+    "Game 10": {  # South Florida
+        "duels_won": [(36.23, 32.85), (42.05, 54.79), (35.56, 57.62), (70.97, 18.72)],
+        "duels_lost": [],
+        "interceptions": [(55.18, 63.77), (22.26, 62.94)]
+    },
+    "Game 11": {  # Real Salt Lake
+        "duels_won": [(47.70, 56.96), (26.75, 55.29), (21.93, 26.37), (68.15, 2.93)],
+        "duels_lost": [(76.29, 32.02)],
+        "interceptions": [(15.78, 53.30), (35.23, 24.54), (76.79, 21.55)]
+    },
+    "Game 12": {  # Real Futbal
+        "duels_won": [(72.63, 10.24), (73.80, 13.90), (54.68, 40.50)],
+        "duels_lost": [(69.97, 22.55), (30.24, 5.26), (39.22, 71.75)],
+        "interceptions": [(75.46, 56.12)]
+    },
+    "Game 13": {  # San Jose
+        "duels_won": [(8.97, 23.21), (23.76, 23.71), (24.09, 41.50), (30.91, 61.61), (65.15, 39.17), (69.31, 29.36)],
+        "duels_lost": [(27.42, 52.97), (30.74, 49.48), (34.73, 52.80), (43.38, 59.62), (34.90, 63.77), (31.08, 62.61), (21.27, 66.93), (70.47, 57.79)],
+        "interceptions": [(76.62, 21.38), (80.78, 60.61), (21.93, 57.45), (25.59, 70.59), (34.90, 31.52), (38.39, 33.68), (29.91, 23.38)]
+    },
+    "Game 14": {  # Houston Dynamo
+        "duels_won": [(68.31, 37.84), (68.15, 42.33), (83.27, 73.75), (55.51, 62.77), (49.53, 75.91), (31.24, 70.92), (24.59, 55.29)],
+        "duels_lost": [(21.60, 21.88), (26.59, 60.45)],
+        "interceptions": []
+    }
+}
 
 #
 # BASE PASSES
@@ -249,7 +356,7 @@ def apply_date_mapping(name: str) -> str:
         "Seongnam FC": "Seongnam FC (03-29)",
         "NY Red Bulls": "NY Red Bulls (03-31)",
         "Real Salt Lake": "Real Salt Lake (04-26)",
-        "Real Futbol": "Real Futbol (05-23)",
+        "Real Futbol": "Real Futbal (05-23)",
         "San Jose": "San Jose (05-24)",
         "Houston Dynamo": "Houston Dynamo (05-26)"
     }
@@ -270,11 +377,6 @@ def get_match_minutes(match_name: str) -> float:
 
 def distance_to_goal(x, y):
     return np.sqrt((GOAL_X - x) ** 2 + (GOAL_Y - y) ** 2)
-
-def get_lane(y):
-    if y >= LANE_LEFT_MIN: return "left"
-    elif y < LANE_RIGHT_MAX: return "right"
-    return "center"
 
 def is_progressive_pass(x_start, y_start, x_end, y_end) -> bool:
     if x_start < 35: return False
@@ -328,59 +430,45 @@ def xt_value(x, y):
     return float(XT_GRID[iy, ix])
 
 #
-# DEFENSIVE STATS FUNCTION
+# DEFENSIVE STATS FUNCTIONS
 #
-def compute_defensive_stats(def_data: dict, match_name: str) -> dict:
+def compute_defensive_stats(def_dict: dict, match_name: str) -> dict:
     mins = get_match_minutes(match_name)
     p90_factor = 90.0 / mins if mins > 0 else 1.0
-    
-    dw = def_data.get("duels_won", []) if isinstance(def_data, dict) else []
-    dl = def_data.get("duels_lost", []) if isinstance(def_data, dict) else []
-    inter = def_data.get("interceptions", []) if isinstance(def_data, dict) else []
-    
-    if isinstance(dw, pd.DataFrame):
-        dw_list = list(zip(dw["x"], dw["y"])) if len(dw) > 0 else []
-    else:
-        dw_list = dw if isinstance(dw, list) else []
-    
-    if isinstance(dl, pd.DataFrame):
-        dl_list = list(zip(dl["x"], dl["y"])) if len(dl) > 0 else []
-    else:
-        dl_list = dl if isinstance(dl, list) else []
-    
-    if isinstance(inter, pd.DataFrame):
-        inter_list = list(zip(inter["x"], inter["y"])) if len(inter) > 0 else []
-    else:
-        inter_list = inter if isinstance(inter, list) else []
-    
+
+    dw_df = def_dict.get("duels_won", pd.DataFrame(columns=["x", "y"]))
+    dl_df = def_dict.get("duels_lost", pd.DataFrame(columns=["x", "y"]))
+    inter_df = def_dict.get("interceptions", pd.DataFrame(columns=["x", "y"]))
+
+    dw_list = list(zip(dw_df["x"], dw_df["y"])) if len(dw_df) > 0 else []
+    dl_list = list(zip(dl_df["x"], dl_df["y"])) if len(dl_df) > 0 else []
+    inter_list = list(zip(inter_df["x"], inter_df["y"])) if len(inter_df) > 0 else []
+
     total_duels = len(dw_list) + len(dl_list)
-    total_def = total_duels + len(inter_list)
-    
     all_def = dw_list + dl_list + inter_list
     att_half = sum(1 for p in all_def if p[0] > 60)
-    
     inter_xt = sum(xt_value(p[0], p[1]) for p in inter_list)
-    
     duel_success_pct = (len(dw_list) / total_duels * 100.0) if total_duels > 0 else 0.0
-    
+
     return {
-        "acoes_defensivas": total_def,
+        "acoes_defensivas": len(all_def),
         "acoes_campo_ataque": att_half,
         "duelos_p90": round(total_duels * p90_factor, 2),
         "duelos_success_pct": round(duel_success_pct, 1),
         "interceptacoes_p90": round(len(inter_list) * p90_factor, 2),
         "interceptacao_xt_sum": round(inter_xt, 3),
+        "duelos_ganhos": len(dw_list),
+        "duelos_perdidos": len(dl_list),
+        "interceptacoes": len(inter_list),
     }
 
 def compute_defensive_stats_avg(all_def_stats: list) -> dict:
     if not all_def_stats:
         return {
-            "acoes_defensivas": 0,
-            "acoes_campo_ataque": 0,
-            "duelos_p90": 0,
-            "duelos_success_pct": 0.0,
-            "interceptacoes_p90": 0,
-            "interceptacao_xt_sum": 0.0,
+            "acoes_defensivas": 0, "acoes_campo_ataque": 0,
+            "duelos_p90": 0, "duelos_success_pct": 0.0,
+            "interceptacoes_p90": 0, "interceptacao_xt_sum": 0.0,
+            "duelos_ganhos": 0, "duelos_perdidos": 0, "interceptacoes": 0,
         }
     avg = {}
     for k in all_def_stats[0].keys():
@@ -451,12 +539,8 @@ for k, v in docx_matches_data.items():
 for k, v in BASE_MATCHES_DATA.items():
     combined_matches_data[k] = v
 
-if len(combined_matches_data) == 0:
-    st.error("Could not load data.")
-    st.stop()
-
 #
-# BUILD DATAFRAMES & REORDER MATCHES
+# BUILD PASS DATAFRAMES
 #
 dfs_by_match = {}
 for match_name, events in combined_matches_data.items():
@@ -481,21 +565,21 @@ for match_name, events in combined_matches_data.items():
     dfm["delta_xt_adj"] = np.where(dfm["is_won"], dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
     dfs_by_match[match_name] = dfm
 
-# REORDER: Move Match 15-18 to be after Match 6
-items = list(dfs_by_match.items())
-if len(items) >= 18:
-    part1 = items[:6]
-    part2 = items[14:18]
-    part3 = items[6:14]
-    part4 = items[18:]
-    dfs_by_match = dict(part1 + part2 + part3 + part4)
+# Reorder pass data to match MATCH_ORDER
+reordered_dfs = {}
+for m_name in MATCH_ORDER:
+    if m_name in dfs_by_match:
+        reordered_dfs[m_name] = dfs_by_match[m_name]
+for m_name in dfs_by_match:
+    if m_name not in reordered_dfs:
+        reordered_dfs[m_name] = dfs_by_match[m_name]
+dfs_by_match = reordered_dfs
 
 #
-# BUILD DEFENSIVE DATAFRAMES (initially empty)
+# BUILD DEFENSIVE DATAFRAMES
 #
 defensive_dfs_by_match = {}
-
-for match_name in dfs_by_match:
+for match_name in MATCH_ORDER:
     def_data = DEFENSIVE_DATA.get(match_name, {"duels_won": [], "duels_lost": [], "interceptions": []})
     def_dict = {}
     for key in ["duels_won", "duels_lost", "interceptions"]:
@@ -508,13 +592,14 @@ for match_name in dfs_by_match:
 
 # Compute defensive stats for each match
 all_def_stats = []
-for m_name, def_dict in defensive_dfs_by_match.items():
+for m_name in MATCH_ORDER:
+    def_dict = defensive_dfs_by_match.get(m_name, {})
     ds = compute_defensive_stats(def_dict, m_name)
     all_def_stats.append(ds)
 
 s_def_avg = compute_defensive_stats_avg(all_def_stats)
 
-df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
+df_all = pd.concat(dfs_by_match.values(), ignore_index=True) if dfs_by_match else pd.DataFrame()
 
 #
 # STATS & SCORES
@@ -523,7 +608,7 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     total = len(df)
     mins = get_match_minutes(match_name)
     p90_factor = 90.0 / mins if mins > 0 else 1.0
-    
+
     if total == 0:
         return {
             "total_passes": 0, "successful_passes": 0, "unsuccessful_passes": 0, "accuracy_pct": 0.0,
@@ -571,7 +656,6 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
 
     high_xt = int((df["delta_xt_adj"] > 0.1).sum())
     sum_dxt = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
-
     neg_xt = float(df.loc[df["is_won"] & (df["delta_xt_adj"] < 0), "delta_xt_adj"].sum())
 
     return {
@@ -670,7 +754,6 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game=""
     disp_avg = str(val_avg) if disp_avg is None else disp_avg
     arrow = _arrow_html(float(val_game), float(val_avg))
     sub_game_html = f'<span>{sub_game}</span>' if sub_game else "<span></span>"
-    
     html = (
         f'<div class="metric-box" style="border-left-color: {border};">'
         f'<div class="metric-title">{label}</div>'
@@ -699,6 +782,12 @@ def summary_box(label, value, sub_value="", border="#3b82f6"):
 
 def row_label(text, cls="row-label-blue"):
     st.markdown(f'<div class="{cls}">{text}</div>', unsafe_allow_html=True)
+
+def section_subtitle(text, color="#60a5fa", border_color="#1e3a8a"):
+    st.markdown(
+        f'<div class="section-subtitle" style="color:{color}; border-bottom: 1px solid {border_color};">{text}</div>',
+        unsafe_allow_html=True
+    )
 
 #
 # DRAW HELPERS (PITCH)
@@ -735,7 +824,7 @@ def draw_pass_map(df):
         if is_lost: color, alpha = COLOR_FAIL, 0.72
         elif is_prog: color, alpha = COLOR_PROGRESSIVE, 0.88
         else: color, alpha = COLOR_SUCCESS, ALPHA_SUCCESS
-        
+
         pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
                      color=color, width=1.3, headwidth=2.0, headlength=2.0, ax=ax, zorder=3, alpha=alpha)
         pitch.scatter(row["x_start"], row["y_start"], s=32, marker="o", color=color,
@@ -827,6 +916,45 @@ def draw_top5_xt_map(df):
     return _save_fig(fig), fig
 
 #
+# DEFENSIVE MAP
+#
+def draw_defensive_map(def_dict):
+    fig, ax, pitch = _base_pitch()
+
+    def _get_points(data):
+        if isinstance(data, pd.DataFrame):
+            if len(data) == 0: return [], []
+            return list(data["x"]), list(data["y"])
+        elif isinstance(data, list):
+            if len(data) == 0: return [], []
+            return [p[0] for p in data], [p[1] for p in data]
+        return [], []
+
+    dw_x, dw_y = _get_points(def_dict.get("duels_won", []))
+    if dw_x:
+        pitch.scatter(dw_x, dw_y, s=80, marker="o", color="#10b981",
+                      edgecolors="white", linewidths=1.2, ax=ax, zorder=5, alpha=0.85, label="Duels Won")
+
+    dl_x, dl_y = _get_points(def_dict.get("duels_lost", []))
+    if dl_x:
+        pitch.scatter(dl_x, dl_y, s=90, marker="x", color="#ef4444",
+                      linewidths=2.0, ax=ax, zorder=5, alpha=0.85, label="Duels Lost")
+
+    inter_x, inter_y = _get_points(def_dict.get("interceptions", []))
+    if inter_x:
+        pitch.scatter(inter_x, inter_y, s=100, marker="D", color="#3b82f6",
+                      edgecolors="white", linewidths=0.8, ax=ax, zorder=6, alpha=0.90, label="Interceptions")
+
+    legend = ax.legend(loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True,
+                       facecolor="#1a1a2e", edgecolor="#444466", fontsize=7.5, labelspacing=0.5, borderpad=0.4)
+    for t in legend.get_texts(): t.set_color("white")
+    legend.get_frame().set_alpha(0.90)
+    ax.axvline(x=HALF_LINE_X, color="#ffffff", lw=0.7, alpha=0.15, linestyle="--")
+
+    _attack_arrow(fig)
+    return _save_fig(fig), fig
+
+#
 # PLOTLY CHARTS
 #
 def draw_total_passes_chart(df_scores):
@@ -834,29 +962,18 @@ def draw_total_passes_chart(df_scores):
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["total_p90"]
     mean_val = y.mean()
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
-        line=dict(color="#00d2ff", width=3, shape='spline'),
-        marker=dict(size=8, color="#00d2ff"),
-        fill='tozeroy', fillcolor='rgba(0, 210, 255, 0.05)',
-        name="Total Passes", hovertemplate="%{customdata}<br>Total Passes: %{y:.1f}"
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_val]*len(x_labels), mode='lines',
-        line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
-    ))
-
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+    fig.add_trace(go.Scatter(x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        line=dict(color="#00d2ff", width=3, shape='spline'), marker=dict(size=8, color="#00d2ff"),
+        fill='tozeroy', fillcolor='rgba(0,210,255,0.05)', name="Total Passes",
+        hovertemplate="%{customdata}<br>Total Passes: %{y:.1f}"))
+    fig.add_trace(go.Scatter(x=x_labels, y=[mean_val]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'), name=f"Avg: {mean_val:.1f}", hoverinfo='skip'))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20,r=20,t=40,b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Total Passes", font=dict(size=14, color="#a0a0b5"))
-    )
+        title=dict(text="Total Passes", font=dict(size=14, color="#a0a0b5")))
     return fig
 
 def draw_grade_chart(df_scores):
@@ -864,57 +981,34 @@ def draw_grade_chart(df_scores):
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["Grade"]
     mean_grade = y.mean()
-
-    metrics = {
-        'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
-        'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
-        'Final 3rd': ('f3_p90', df_scores['f3_p90'].mean()),
-        '% Pos Impact': ('pos_pct', df_scores['pos_pct'].mean()),
-        'Total Passes': ('total_p90', df_scores['total_p90'].mean())
-    }
-
+    metrics = {'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
+               'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
+               'Final 3rd': ('f3_p90', df_scores['f3_p90'].mean()),
+               '% Pos Impact': ('pos_pct', df_scores['pos_pct'].mean()),
+               'Total Passes': ('total_p90', df_scores['total_p90'].mean())}
     hover_texts = []
     for _, row in df_scores.iterrows():
         diffs = {}
         for name, (col, avg) in metrics.items():
-            if avg == 0:
-                diffs[name] = 0
-            else:
-                diffs[name] = ((row[col] - avg) / avg) * 100
-        
+            if avg == 0: diffs[name] = 0
+            else: diffs[name] = ((row[col] - avg) / avg) * 100
         if row['Grade'] >= mean_grade:
-            best_metric = max(diffs, key=diffs.get)
-            val = diffs[best_metric]
-            hover_texts.append(f"<br>Highlight: {best_metric} (+{val:.1f}%)")
+            best = max(diffs, key=diffs.get); hover_texts.append(f"<br>Highlight: {best} (+{diffs[best]:.1f}%)")
         else:
-            worst_metric = min(diffs, key=diffs.get)
-            val = diffs[worst_metric]
-            hover_texts.append(f"<br>Issue: {worst_metric} ({val:.1f}%)")
-
+            worst = min(diffs, key=diffs.get); hover_texts.append(f"<br>Issue: {worst} ({diffs[worst]:.1f}%)")
     customdata = np.stack((df_scores["match"], hover_texts), axis=-1)
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=customdata, mode='lines+markers',
-        line=dict(color="#2F80ED", width=3, shape='spline'),
-        marker=dict(size=8, color="#2F80ED"),
-        fill='tozeroy', fillcolor='rgba(47, 128, 237, 0.05)',
-        name="Grade", hovertemplate="%{customdata[0]}<br>Grade: %{y:.1f}%{customdata[1]}"
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_grade]*len(x_labels), mode='lines',
-        line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Avg: {mean_grade:.1f}", hoverinfo='skip'
-    ))
-
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=400, margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(range=[40, 100], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+    fig.add_trace(go.Scatter(x=x_labels, y=y, customdata=customdata, mode='lines+markers',
+        line=dict(color="#2F80ED", width=3, shape='spline'), marker=dict(size=8, color="#2F80ED"),
+        fill='tozeroy', fillcolor='rgba(47,128,237,0.05)', name="Grade",
+        hovertemplate="%{customdata[0]}<br>Grade: %{y:.1f}%{customdata[1]}"))
+    fig.add_trace(go.Scatter(x=x_labels, y=[mean_grade]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'), name=f"Avg: {mean_grade:.1f}", hoverinfo='skip'))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=400, margin=dict(l=20,r=20,t=40,b=20),
+        yaxis=dict(range=[40,100], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Grade Evolution", font=dict(size=14, color="#ffffff"))
-    )
+        title=dict(text="Grade Evolution", font=dict(size=14, color="#ffffff")))
     return fig
 
 def draw_progressive_chart(df_scores):
@@ -922,29 +1016,18 @@ def draw_progressive_chart(df_scores):
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["prog_p90"]
     mean_prog = y.mean()
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
-        line=dict(color="#10b981", width=3, shape='spline'),
-        marker=dict(size=8, color="#10b981"),
-        fill='tozeroy', fillcolor='rgba(16, 185, 129, 0.05)',
-        name="Progressive Passes", hovertemplate="%{customdata}<br>Progressive: %{y:.1f}"
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_prog]*len(x_labels), mode='lines',
-        line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Avg: {mean_prog:.1f}", hoverinfo='skip'
-    ))
-
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+    fig.add_trace(go.Scatter(x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        line=dict(color="#10b981", width=3, shape='spline'), marker=dict(size=8, color="#10b981"),
+        fill='tozeroy', fillcolor='rgba(16,185,129,0.05)', name="Progressive Passes",
+        hovertemplate="%{customdata}<br>Progressive: %{y:.1f}"))
+    fig.add_trace(go.Scatter(x=x_labels, y=[mean_prog]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'), name=f"Avg: {mean_prog:.1f}", hoverinfo='skip'))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20,r=20,t=40,b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
-    )
+        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5")))
     return fig
 
 def draw_final_third_chart(df_scores):
@@ -952,29 +1035,18 @@ def draw_final_third_chart(df_scores):
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["f3_p90"]
     mean_f3 = y.mean()
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
-        line=dict(color="#8b5cf6", width=3, shape='spline'),
-        marker=dict(size=8, color="#8b5cf6"),
-        fill='tozeroy', fillcolor='rgba(139, 92, 246, 0.05)',
-        name="Final Third Passes", hovertemplate="%{customdata}<br>Final Third: %{y:.1f}"
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_f3]*len(x_labels), mode='lines',
-        line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Avg: {mean_f3:.1f}", hoverinfo='skip'
-    ))
-
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+    fig.add_trace(go.Scatter(x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        line=dict(color="#8b5cf6", width=3, shape='spline'), marker=dict(size=8, color="#8b5cf6"),
+        fill='tozeroy', fillcolor='rgba(139,92,246,0.05)', name="Final Third Passes",
+        hovertemplate="%{customdata}<br>Final Third: %{y:.1f}"))
+    fig.add_trace(go.Scatter(x=x_labels, y=[mean_f3]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'), name=f"Avg: {mean_f3:.1f}", hoverinfo='skip'))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20,r=20,t=40,b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Final Third Passes", font=dict(size=14, color="#a0a0b5"))
-    )
+        title=dict(text="Final Third Passes", font=dict(size=14, color="#a0a0b5")))
     return fig
 
 def draw_xt_chart(df_scores):
@@ -982,60 +1054,38 @@ def draw_xt_chart(df_scores):
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["xt_p90"]
     mean_xt = y.mean()
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
-        line=dict(color="#f59e0b", width=3, shape='spline'),
-        marker=dict(size=8, color="#f59e0b"),
-        fill='tozeroy', fillcolor='rgba(245, 158, 11, 0.05)',
-        name="Σ Pass Impact", hovertemplate="%{customdata}<br>Σ Pass Impact: %{y:.2f}"
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_xt]*len(x_labels), mode='lines',
-        line=dict(color="#ffd700", width=1.5, dash='dash'),
-        name=f"Avg: {mean_xt:.2f}", hoverinfo='skip'
-    ))
-
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+    fig.add_trace(go.Scatter(x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        line=dict(color="#f59e0b", width=3, shape='spline'), marker=dict(size=8, color="#f59e0b"),
+        fill='tozeroy', fillcolor='rgba(245,158,11,0.05)', name="Σ Pass Impact",
+        hovertemplate="%{customdata}<br>Σ Pass Impact: %{y:.2f}"))
+    fig.add_trace(go.Scatter(x=x_labels, y=[mean_xt]*len(x_labels), mode='lines',
+        line=dict(color="#ffd700", width=1.5, dash='dash'), name=f"Avg: {mean_xt:.2f}", hoverinfo='skip'))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20,r=20,t=40,b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Σ Pass Impact", font=dict(size=14, color="#a0a0b5"))
-    )
+        title=dict(text="Σ Pass Impact", font=dict(size=14, color="#a0a0b5")))
     return fig
 
 def draw_comparison_bar(title, val_first, val_last, suffix=""):
     color_last = "#10b981" if val_last >= val_first else "#E07070"
-
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=["First 9 Matches", "Last 9 Matches"],
-        y=[val_first, val_last],
+    fig.add_trace(go.Bar(x=["First 9", "Last 9"], y=[val_first, val_last],
         marker_color=["#444466", color_last],
-        text=[f"{val_first:.2f}{suffix}", f"{val_last:.2f}{suffix}"],
-        textposition='auto',
-        width=[0.35, 0.35],
-        hovertemplate="%{x}<br>" + title + ": %{y:.2f}" + suffix + "<extra></extra>"
-    ))
-
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=250, margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(range=[0, max(val_first, val_last) * 1.2], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
-        xaxis=dict(showgrid=False, zeroline=False),
-        title=dict(text=title, font=dict(size=14, color="#a0a0b5")),
-        showlegend=False,
-        bargap=0.2
-    )
+        text=[f"{val_first:.2f}{suffix}", f"{val_last:.2f}{suffix}"], textposition='auto', width=[0.35,0.35],
+        hovertemplate="%{x}<br>" + title + ": %{y:.2f}" + suffix + "<extra></extra>"))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=250, margin=dict(l=20,r=20,t=40,b=20),
+        yaxis=dict(range=[0, max(val_first,val_last)*1.2], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False), title=dict(text=title, font=dict(size=14, color="#a0a0b5")),
+        showlegend=False, bargap=0.2)
     return fig
 
 #
 # SIDEBAR
 #
-st.sidebar.title("Pass Dashboard")
+st.sidebar.title("Pass & Defense Dashboard")
 st.sidebar.markdown("### 2026 Matches")
 st.sidebar.markdown("#### Hudson Cicala")
 
@@ -1046,16 +1096,22 @@ if os.path.exists(img_path):
 st.sidebar.markdown("---")
 
 num_matches = len(dfs_by_match)
-all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
+all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match if m in dfs_by_match]
 
 #
-# TABS & LAYOUT
+# TABS
 #
 tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Evolution"])
 
+# =====================================================
+# TAB 1: CHARTS & ANALYSIS
+# =====================================================
 with tab_graf:
     st.markdown("### Overall Performance Summary")
-    
+
+    # --- PASSES SECTION ---
+    section_subtitle("📋 Passes", "#60a5fa", "#1e3a8a")
+
     if num_matches > 0:
         total_passes_all = sum(s['total_passes'] for s in all_match_stats)
         total_succ_all = sum(s['successful_passes'] for s in all_match_stats)
@@ -1063,7 +1119,7 @@ with tab_graf:
         total_f3_all = sum(s['to_final_third_success'] for s in all_match_stats)
         total_pos_all = sum(s['pos_count'] for s in all_match_stats)
         total_xt_all = sum(s['sum_dxt'] for s in all_match_stats)
-        
+
         avg_acc = sum(s['accuracy_pct'] for s in all_match_stats) / num_matches
         avg_prog_p90 = sum(s['prog_p90'] for s in all_match_stats) / num_matches
         avg_f3_p90 = sum(s['f3_p90'] for s in all_match_stats) / num_matches
@@ -1085,35 +1141,42 @@ with tab_graf:
             summary_box("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
             summary_box("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
 
-        st.markdown(f"<p style='text-align:center;color:#64748b;font-size:12px;'>{num_matches} matches collected</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:center;color:#64748b;font-size:12px;'>{num_matches} matches with pass data</p>", unsafe_allow_html=True)
 
-        # --- Defensive Stats Boxes ---
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### 🛡️ Defensive Summary (Avg per match)")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        total_acoes = sum(ds["acoes_defensivas"] for ds in all_def_stats)
-        total_ataque = sum(ds["acoes_campo_ataque"] for ds in all_def_stats)
-        avg_duelos_p90 = s_def_avg["duelos_p90"]
-        avg_duel_pct = s_def_avg["duelos_success_pct"]
-        avg_intercept_p90 = s_def_avg["interceptacoes_p90"]
-        avg_xt_intercept = s_def_avg["interceptacao_xt_sum"]
+    # --- DEFENSIVE ACTIONS SECTION ---
+    section_subtitle("🛡️ Defensive Actions", "#f87171", "#7f1d1d")
 
-        col_d1, col_d2, col_d3 = st.columns(3)
-        with col_d1:
-            row_label("🛡️ Ações Defensivas", "row-label-red")
-            summary_box("Ações Def (Total)", f"{total_acoes:.0f}", f"Média: {s_def_avg['acoes_defensivas']:.1f}/jogo", border=C_RED)
-            summary_box("Ações no campo ataque", f"{total_ataque:.0f}", f"Média: {s_def_avg['acoes_campo_ataque']:.1f}/jogo", border=C_RED)
-        with col_d2:
-            row_label("⚔️ Duelos", "row-label-amber")
-            summary_box("Duelos def p90", f"{avg_duelos_p90:.1f}", border=C_AMBER)
-            summary_box("% Duelos def", f"{avg_duel_pct:.1f}%", border=C_AMBER)
-        with col_d3:
-            row_label("🎯 Interceptações", "row-label-green")
-            summary_box("Interceptações p90", f"{avg_intercept_p90:.2f}", border=C_GREEN)
-            summary_box("xT das interceptações", f"{avg_xt_intercept:.3f}", border=C_GREEN)
+    total_acoes = sum(ds["acoes_defensivas"] for ds in all_def_stats)
+    total_ataque = sum(ds["acoes_campo_ataque"] for ds in all_def_stats)
+    total_duelos_g = sum(ds["duelos_ganhos"] for ds in all_def_stats)
+    total_duelos_p = sum(ds["duelos_perdidos"] for ds in all_def_stats)
+    total_inter = sum(ds["interceptacoes"] for ds in all_def_stats)
+    total_inter_xt = sum(ds["interceptacao_xt_sum"] for ds in all_def_stats)
+    avg_duelos_p90 = s_def_avg["duelos_p90"]
+    avg_duel_pct = s_def_avg["duelos_success_pct"]
+    avg_intercept_p90 = s_def_avg["interceptacoes_p90"]
+    avg_xt_intercept = s_def_avg["interceptacao_xt_sum"]
+
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        row_label("🛡️ Ações Defensivas", "row-label-red")
+        summary_box("Ações Def (Total)", f"{total_acoes}", f"Média: {s_def_avg['acoes_defensivas']:.1f}/jogo", border=C_RED)
+        summary_box("Ações no campo ataque", f"{total_ataque}", f"Média: {s_def_avg['acoes_campo_ataque']:.1f}/jogo", border=C_RED)
+    with col_d2:
+        row_label("⚔️ Duelos", "row-label-amber")
+        summary_box("Duelos def p90", f"{avg_duelos_p90:.1f}", f"G: {total_duelos_g} | P: {total_duelos_p}", border=C_AMBER)
+        summary_box("% Duelos def", f"{avg_duel_pct:.1f}%", border=C_AMBER)
+    with col_d3:
+        row_label("🎯 Interceptações", "row-label-green")
+        summary_box("Interceptações p90", f"{avg_intercept_p90:.2f}", f"Total: {total_inter}", border=C_GREEN)
+        summary_box("xT das interceptações", f"{avg_xt_intercept:.3f}", f"Total: {total_inter_xt:.3f}", border=C_GREEN)
+
+    st.markdown(f"<p style='text-align:center;color:#64748b;font-size:12px;'>{len(MATCH_ORDER)} matches with defensive data</p>", unsafe_allow_html=True)
 
     st.markdown("---")
-    
+
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
         fig_scores = draw_grade_chart(df_scores)
@@ -1135,133 +1198,146 @@ with tab_graf:
 
         fig_total = draw_total_passes_chart(df_scores)
         st.plotly_chart(fig_total, use_container_width=True)
-
         fig_prog = draw_progressive_chart(df_scores)
         st.plotly_chart(fig_prog, use_container_width=True)
-
         fig_f3 = draw_final_third_chart(df_scores)
         st.plotly_chart(fig_f3, use_container_width=True)
-
         fig_xt = draw_xt_chart(df_scores)
         st.plotly_chart(fig_xt, use_container_width=True)
     else:
-        st.warning("Not enough data to generate charts.")
+        st.warning("Not enough pass data to generate charts.")
 
+# =====================================================
+# TAB 2: DETAILED DASHBOARD
+# =====================================================
 with tab_dash:
-    st.markdown("### Match Filters")
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        all_match_names = list(dfs_by_match.keys())
-        selected_match = st.selectbox("Select Match", options=all_match_names, index=0)
-    with col_f2:
-        pass_filter = st.radio(
-            "Pass Type",
-            ["All", "Successful", "Unsuccessful", "Progressive", "Final Third"],
-            index=0, horizontal=True
-        )
+    tab_dash_passes, tab_dash_def = st.tabs(["⚽ Passes", "🛡️ Defensive Actions"])
 
-    def apply_filter(df):
-        if pass_filter == "Successful": return df[df["is_won"]].copy()
-        if pass_filter == "Unsuccessful": return df[~df["is_won"]].copy()
-        if pass_filter == "Progressive": return df[df["progressive"]].copy()
-        if pass_filter == "Final Third": return df[(df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)].copy()
-        return df.copy()
+    # ------ SUB-TAB: PASSES ------
+    with tab_dash_passes:
+        st.markdown("### Match Filters")
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            pass_match_names = [m for m in MATCH_ORDER if m in dfs_by_match]
+            if not pass_match_names:
+                st.warning("No matches with pass data.")
+                st.stop()
+            selected_match = st.selectbox("Select Match", options=pass_match_names, index=0)
+        with col_f2:
+            pass_filter = st.radio("Pass Type", ["All","Successful","Unsuccessful","Progressive","Final Third"], index=0, horizontal=True)
 
-    df_game = apply_filter(dfs_by_match[selected_match].copy())
-    s_game = compute_stats(df_game, selected_match)
+        def apply_filter(df):
+            if pass_filter == "Successful": return df[df["is_won"]].copy()
+            if pass_filter == "Unsuccessful": return df[~df["is_won"]].copy()
+            if pass_filter == "Progressive": return df[df["progressive"]].copy()
+            if pass_filter == "Final Third": return df[(df["x_start"]<FINAL_THIRD_LINE_X)&(df["x_end"]>=FINAL_THIRD_LINE_X)].copy()
+            return df.copy()
 
-    s_avg = {}
-    if num_matches > 0:
-        for k in all_match_stats[0].keys():
-            if isinstance(all_match_stats[0][k], (int, float)):
-                s_avg[k] = sum(s[k] for s in all_match_stats) / num_matches
-            else:
-                s_avg[k] = 0
-    else:
-        s_avg = s_game.copy()
+        df_game = apply_filter(dfs_by_match[selected_match].copy())
+        s_game = compute_stats(df_game, selected_match)
 
-    st.markdown("---")
+        s_avg = {}
+        if all_match_stats:
+            for k in all_match_stats[0].keys():
+                if isinstance(all_match_stats[0][k], (int, float)):
+                    s_avg[k] = sum(s[k] for s in all_match_stats) / len(all_match_stats)
+                else:
+                    s_avg[k] = 0
+        else:
+            s_avg = s_game.copy()
 
-    # ROW 1: MAPS
-    img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
-    img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
-    img_xt_game, fig_xt_game = draw_top5_xt_map(df_game); plt.close(fig_xt_game)
+        st.markdown("---")
+        img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
+        img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
+        img_xt_game, fig_xt_game = draw_top5_xt_map(df_game); plt.close(fig_xt_game)
 
-    col_m1, col_m2, col_m3 = st.columns(3)
-    with col_m1:
-        row_label(f"🟦 Pass Map", "row-label-blue")
-        st.image(img_pm_game, use_container_width=True)
-    with col_m2:
-        row_label(f"🟩 Zone Heatmap", "row-label-green")
-        st.image(img_ht_game, use_container_width=True)
-    with col_m3:
-        row_label(f"🟡 Top 5 Pass Impact", "row-label-amber")
-        st.image(img_xt_game, use_container_width=True)
+        col_m1, col_m2, col_m3 = st.columns(3)
+        with col_m1: row_label("🟦 Pass Map", "row-label-blue"); st.image(img_pm_game, use_container_width=True)
+        with col_m2: row_label("🟩 Zone Heatmap", "row-label-green"); st.image(img_ht_game, use_container_width=True)
+        with col_m3: row_label("🟡 Top 5 Pass Impact", "row-label-amber"); st.image(img_xt_game, use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1:
+            row_label("📋 Pass Overview", "row-label-blue")
+            cmp_box("Total Passes", s_game["total_p90"], f"{s_avg.get('total_p90',0):.1f}", border=C_BLUE)
+            cmp_box("Successful %", s_game["accuracy_pct"], s_avg.get('accuracy_pct',0),
+                    disp_game=f"{s_game['accuracy_pct']:.1f}%", disp_avg=f"{s_avg.get('accuracy_pct',0):.1f}%", border=C_BLUE)
+        with col_s2:
+            row_label("📊 Advanced", "row-label-green")
+            cmp_box("Progressive", s_game["prog_p90"], f"{s_avg.get('prog_p90',0):.1f}", border=C_GREEN)
+            cmp_box("Final Third", s_game["f3_p90"], f"{s_avg.get('f3_p90',0):.1f}", border=C_GREEN)
+        with col_s3:
+            row_label("⚡ Pass Impact", "row-label-amber")
+            cmp_box("% Positive Impact", s_game["pos_pct"], s_avg.get('pos_pct',0),
+                    disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg.get('pos_pct',0):.1f}%", border=C_AMBER)
+            cmp_box("Σ Pass Impact", s_game["xt_p90"], f"{s_avg.get('xt_p90',0):.3f}",
+                    disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg.get('xt_p90',0):.3f}", border=C_AMBER)
 
-    # ROW 2: STATS (2 per column)
-    col_s1, col_s2, col_s3 = st.columns(3)
-    with col_s1:
-        row_label("📋 Pass Overview", "row-label-blue")
-        cmp_box("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}", border=C_BLUE)
-        cmp_box("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
-                disp_game=f"{s_game['accuracy_pct']:.1f}%", disp_avg=f"{s_avg['accuracy_pct']:.1f}%", border=C_BLUE)
-    with col_s2:
-        row_label("📊 Advanced", "row-label-green")
-        cmp_box("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}", border=C_GREEN)
-        cmp_box("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}", border=C_GREEN)
-    with col_s3:
-        row_label("⚡ Pass Impact", "row-label-amber")
-        cmp_box("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
-                disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER)
-        cmp_box("Σ Pass Impact", s_game["xt_p90"], f"{s_avg['xt_p90']:.3f}",
-                disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
+    # ------ SUB-TAB: DEFENSIVE ACTIONS ------
+    with tab_dash_def:
+        st.markdown("### 🛡️ Defensive Actions — per match")
 
+        def_match_names = [m for m in MATCH_ORDER if m in defensive_dfs_by_match]
+        if not def_match_names:
+            st.warning("No defensive data available.")
+        else:
+            sel_def_match = st.selectbox("Select Match (Defensive)", options=def_match_names, index=0, key="def_match_selector")
+
+            def_dict = defensive_dfs_by_match[sel_def_match]
+            def_ds = compute_defensive_stats(def_dict, sel_def_match)
+
+            def_filter = st.radio("Defensive Action Type", ["All","Duels Won","Duels Lost","Interceptions"],
+                                  index=0, horizontal=True, key="def_filter_map")
+
+            def_map_data = {}
+            def_map_data["duels_won"] = def_dict.get("duels_won", pd.DataFrame()) if def_filter in ["All","Duels Won"] else pd.DataFrame()
+            def_map_data["duels_lost"] = def_dict.get("duels_lost", pd.DataFrame()) if def_filter in ["All","Duels Lost"] else pd.DataFrame()
+            def_map_data["interceptions"] = def_dict.get("interceptions", pd.DataFrame()) if def_filter in ["All","Interceptions"] else pd.DataFrame()
+
+            img_def_map, fig_def_map = draw_defensive_map(def_map_data); plt.close(fig_def_map)
+
+            col_def_map, col_def_stats = st.columns([2, 1])
+            with col_def_map: st.image(img_def_map, use_container_width=True)
+            with col_def_stats:
+                row_label("🛡️ Defensive Stats", "row-label-red")
+                cmp_box("Ações Def", def_ds["acoes_defensivas"], f"{s_def_avg['acoes_defensivas']:.1f}", border=C_RED)
+                cmp_box("Campo ataque", def_ds["acoes_campo_ataque"], f"{s_def_avg['acoes_campo_ataque']:.1f}", border=C_RED)
+                st.markdown("<br>", unsafe_allow_html=True)
+                cmp_box("Duelos p90", def_ds["duelos_p90"], f"{s_def_avg['duelos_p90']:.1f}", border=C_AMBER)
+                cmp_box("% Sucesso", def_ds["duelos_success_pct"], s_def_avg["duelos_success_pct"],
+                        disp_game=f"{def_ds['duelos_success_pct']:.1f}%", disp_avg=f"{s_def_avg['duelos_success_pct']:.1f}%", border=C_AMBER)
+                st.markdown("<br>", unsafe_allow_html=True)
+                cmp_box("Intercept p90", def_ds["interceptacoes_p90"], f"{s_def_avg['interceptacoes_p90']:.2f}", border=C_GREEN)
+                cmp_box("xT Intercept", def_ds["interceptacao_xt_sum"], f"{s_def_avg['interceptacao_xt_sum']:.3f}",
+                        disp_game=f"{def_ds['interceptacao_xt_sum']:.3f}", disp_avg=f"{s_def_avg['interceptacao_xt_sum']:.3f}", border=C_GREEN)
+
+# =====================================================
+# TAB 3: EVOLUTION
+# =====================================================
 with tab_evo:
     st.markdown("### First 9 vs Last 9 Matches")
-    st.markdown("Comparing the average performance between the first 9 and the last 9 matches to analyze player evolution.")
+    st.markdown("Comparing the average performance between the first 9 and the last 9 matches.")
 
     df_scores = compute_match_scores(dfs_by_match)
     if len(df_scores) > 0:
         if len(df_scores) < 18:
-            st.info(f"Note: Only {len(df_scores)} matches available. The comparison will overlap or use available data.")
+            st.info(f"Note: Only {len(df_scores)} matches available.")
 
         first_9 = df_scores.head(9)
         last_9 = df_scores.tail(9)
 
-        # Layout 3x3
         r1c1, r1c2, r1c3 = st.columns(3)
-        with r1c1:
-            fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
-            st.plotly_chart(fig_grade, use_container_width=True)
-        with r1c2:
-            fig_xt_evo = draw_comparison_bar("Σ Pass Impact", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
-            st.plotly_chart(fig_xt_evo, use_container_width=True)
-        with r1c3:
-            fig_high_xt_evo = draw_comparison_bar("High Impact Passes", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
-            st.plotly_chart(fig_high_xt_evo, use_container_width=True)
-
+        with r1c1: fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean()); st.plotly_chart(fig_grade, use_container_width=True)
+        with r1c2: fig_xt_evo = draw_comparison_bar("Σ Pass Impact", first_9["xt_p90"].mean(), last_9["xt_p90"].mean()); st.plotly_chart(fig_xt_evo, use_container_width=True)
+        with r1c3: fig_high_xt_evo = draw_comparison_bar("High Impact Passes", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean()); st.plotly_chart(fig_high_xt_evo, use_container_width=True)
         r2c1, r2c2, r2c3 = st.columns(3)
-        with r2c1:
-            fig_prog_evo = draw_comparison_bar("Progressive Passes", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
-            st.plotly_chart(fig_prog_evo, use_container_width=True)
-        with r2c2:
-            fig_f3_evo = draw_comparison_bar("Final Third Passes", first_9["f3_p90"].mean(), last_9["f3_p90"].mean())
-            st.plotly_chart(fig_f3_evo, use_container_width=True)
-        with r2c3:
-            fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes", first_9["dz_p90"].mean(), last_9["dz_p90"].mean())
-            st.plotly_chart(fig_dz_evo, use_container_width=True)
-
+        with r2c1: fig_prog_evo = draw_comparison_bar("Progressive Passes", first_9["prog_p90"].mean(), last_9["prog_p90"].mean()); st.plotly_chart(fig_prog_evo, use_container_width=True)
+        with r2c2: fig_f3_evo = draw_comparison_bar("Final Third Passes", first_9["f3_p90"].mean(), last_9["f3_p90"].mean()); st.plotly_chart(fig_f3_evo, use_container_width=True)
+        with r2c3: fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes", first_9["dz_p90"].mean(), last_9["dz_p90"].mean()); st.plotly_chart(fig_dz_evo, use_container_width=True)
         r3c1, r3c2, r3c3 = st.columns(3)
-        with r3c1:
-            fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%")
-            st.plotly_chart(fig_acc_evo, use_container_width=True)
-        with r3c2:
-            fig_long_evo = draw_comparison_bar("Long Pass Accuracy %", first_9["long_acc_pct"].mean(), last_9["long_acc_pct"].mean(), suffix="%")
-            st.plotly_chart(fig_long_evo, use_container_width=True)
-        with r3c3:
-            fig_prog_acc_evo = draw_comparison_bar("Progressive Accuracy %", first_9["prog_acc_pct"].mean(), last_9["prog_acc_pct"].mean(), suffix="%")
-            st.plotly_chart(fig_prog_acc_evo, use_container_width=True)
+        with r3c1: fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%"); st.plotly_chart(fig_acc_evo, use_container_width=True)
+        with r3c2: fig_long_evo = draw_comparison_bar("Long Pass Accuracy %", first_9["long_acc_pct"].mean(), last_9["long_acc_pct"].mean(), suffix="%"); st.plotly_chart(fig_long_evo, use_container_width=True)
+        with r3c3: fig_prog_acc_evo = draw_comparison_bar("Progressive Accuracy %", first_9["prog_acc_pct"].mean(), last_9["prog_acc_pct"].mean(), suffix="%"); st.plotly_chart(fig_prog_acc_evo, use_container_width=True)
     else:
         st.warning("Not enough data to generate evolution charts.")
