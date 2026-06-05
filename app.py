@@ -17,60 +17,63 @@ from matplotlib.patches import FancyArrowPatch, Rectangle
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 import plotly.graph_objects as go
 
-#
 # PAGE CONFIG
-#
 st.set_page_config(layout="wide", page_title="Hudson Cicala — Pass Dashboard")
 
-#
 # OPTIONAL DOCX IMPORT
-#
 DOCX_AVAILABLE = True
 try:
     from docx import Document
 except Exception:
     DOCX_AVAILABLE = False
 
-#
 # STYLE
-#
 st.markdown("""
-<style>
-    /* Mantendo apenas o estilo dos cartões de métricas e títulos das linhas para não quebrar a fonte nativa do Streamlit */
-    .row-label-blue {
-        font-size: 14px; font-weight: 700; color: #60a5fa;
-        text-transform: uppercase; letter-spacing: 1px;
-        margin-bottom: 8px; border-bottom: 1px solid #1e3a8a; padding-bottom: 4px;
-    }
-    .row-label-green {
-        font-size: 14px; font-weight: 700; color: #34d399;
-        text-transform: uppercase; letter-spacing: 1px;
-        margin-bottom: 8px; border-bottom: 1px solid #064e3b; padding-bottom: 4px;
-    }
-    .row-label-amber {
-        font-size: 14px; font-weight: 700; color: #fbbf24;
-        text-transform: uppercase; letter-spacing: 1px;
-        margin-bottom: 8px; border-bottom: 1px solid #78350f; padding-bottom: 4px;
-    }
-    
-    .metric-box {
-        background: #1a1a2e; border-radius: 8px; padding: 12px 16px;
-        margin-bottom: 12px; border-left: 4px solid #3b82f6;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    .metric-title { font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
-    .metric-value-row { display: flex; align-items: baseline; gap: 8px; }
-    .metric-value { font-size: 24px; font-weight: 800; color: #ffffff; line-height: 1; }
-    .metric-arrow { font-size: 13px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
-    .arrow-up { color: #10b981; background: rgba(16, 185, 129, 0.15); }
-    .arrow-down { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
-    .metric-sub { font-size: 11px; color: #64748b; margin-top: 4px; display: flex; justify-content: space-between; }
-</style>
+    <style>
+        .stApp { background: #0a0a1a; }
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+        .stTabs [data-baseweb="tab"] { border-radius: 4px; }
+        .metric-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .metric-box {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 1px solid #2a2a4a;
+            border-radius: 10px;
+            padding: 14px 18px;
+            min-width: 160px;
+            flex: 1;
+        }
+        .metric-box .label { color: #8888aa; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .metric-box .value { color: #ffffff; font-size: 1.5rem; font-weight: 700; }
+        .metric-box .sub { color: #667799; font-size: 0.7rem; margin-top: 2px; }
+        .metric-box .arrow-up { color: #10b981; font-size: 0.75rem; margin-left: 6px; }
+        .metric-box .arrow-down { color: #E07070; font-size: 0.75rem; margin-left: 6px; }
+        .row-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.8px; margin-bottom: 8px; }
+        .row-label-blue { color: #2F80ED; }
+        .row-label-green { color: #10b981; }
+        .row-label-amber { color: #f59e0b; }
+        h2 { color: #e0e0f0; font-weight: 600; }
+        h3 { color: #c0c0e0; font-weight: 500; }
+        h4 { color: #a0a0c0; font-weight: 400; }
+        .stSelectbox label, .stRadio label { color: #a0a0c0 !important; }
+        .metric-comparison {
+            background: #1a1a2e; border-radius: 8px; border: 1px solid #2a2a4a;
+            padding: 10px 14px; margin-bottom: 8px;
+        }
+        .metric-comparison .cmp-label { color: #8888aa; font-size: 0.7rem; font-weight: 500; }
+        .metric-comparison .cmp-value { color: #ffffff; font-size: 1.2rem; font-weight: 700; }
+        .metric-comparison .cmp-arrow { font-size: 0.75rem; margin-left: 4px; }
+        .metric-comparison .cmp-sub { color: #667799; font-size: 0.65rem; }
+        .summary-box {
+            background: #1a1a2e; border-radius: 8px; border: 1px solid #2a2a4a;
+            padding: 10px 14px; margin-bottom: 8px;
+        }
+        .summary-box .sb-label { color: #8888aa; font-size: 0.7rem; font-weight: 500; }
+        .summary-box .sb-value { color: #ffffff; font-size: 1.2rem; font-weight: 700; }
+        .summary-box .sb-sub { color: #667799; font-size: 0.65rem; }
+    </style>
 """, unsafe_allow_html=True)
 
-#
 # CONSTANTS
-#
 FIELD_X, FIELD_Y = 120.0, 80.0
 HALF_LINE_X = FIELD_X / 2
 FINAL_THIRD_LINE_X = 80.0
@@ -78,29 +81,96 @@ LANE_LEFT_MIN = 53.33
 LANE_RIGHT_MAX = 26.67
 GOAL_X = 120.0
 GOAL_Y = 40.0
-
 FIG_W, FIG_H = 7.0, 4.7
 FIG_DPI = 180
-
 COLOR_SUCCESS = "#c8c8c8"
 COLOR_PROGRESSIVE = "#2F80ED"
 COLOR_FAIL = "#E07070"
 ALPHA_SUCCESS = 0.07
-
 C_BLUE = "#2F80ED"
 C_GREEN = "#10b981"
 C_AMBER = "#f59e0b"
-
 CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a", "#f97316", "#b91c1c"])
 NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
-
 NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 
-#
+
+def get_lane(y):
+    if y >= LANE_LEFT_MIN:
+        return "left"
+    elif y < LANE_RIGHT_MAX:
+        return "right"
+    return "center"
+
+
+def distance_to_goal(x, y):
+    return np.sqrt((GOAL_X - x) ** 2 + (GOAL_Y - y) ** 2)
+
+
+def is_progressive_pass(x_start, y_start, x_end, y_end):
+    if x_start < 35:
+        return False
+    start_dist = distance_to_goal(x_start, y_start)
+    end_dist = distance_to_goal(x_end, y_end)
+    if start_dist == 0:
+        return False
+    return ((start_dist - end_dist) / start_dist) >= 0.25
+
+
+def classify_pass_direction(x_start, y_start, x_end, y_end):
+    dx = x_end - x_start
+    dy = y_end - y_start
+    dist = np.sqrt(dx ** 2 + dy ** 2)
+    angle_deg = np.degrees(np.arctan2(abs(dy), dx))
+    if angle_deg <= 45.0:
+        return "forward"
+    if angle_deg >= 135.0:
+        return "backward"
+    if dist > LATERAL_MIN_DIST:
+        return "lateral_right" if dy > 0 else "lateral_left"
+    return "forward" if dx >= 0 else "backward"
+
+
+def distance_bonus(distance):
+    excess = np.maximum(0.0, np.asarray(distance, dtype=float) - D_REF)
+    return np.minimum(BONUS_CAP, np.log1p(excess / D_SCALE))
+
+
+@st.cache_data(show_spinner=False)
+def compute_xt_grid(NX=16, NY=12, sub=24):
+    ncols_hr = NX * sub
+    nrows_hr = NY * sub
+    xe = np.linspace(0, FIELD_X, ncols_hr + 1)
+    ye = np.linspace(0, FIELD_Y, nrows_hr + 1)
+    xc = (xe[:-1] + xe[1:]) / 2
+    yc_arr = (ye[:-1] + ye[1:]) / 2
+    Xc, Yc = np.meshgrid(xc, yc_arr)
+    xp = 0.01 + (Xc / FIELD_X) * 0.99
+    yc = 1.0 - np.abs((Yc / FIELD_Y) - 0.5) * 2.0
+    base = xp * (0.8 + 0.2 * yc)
+    base = (base - base.min()) / (base.max() - base.min() + 1e-12)
+    XT = base.copy()
+    XT = (XT - XT.min()) / (XT.max() - XT.min() + 1e-12)
+    XTc = np.zeros((NY, NX))
+    for iy in range(NY):
+        for ix in range(NX):
+            XTc[iy, ix] = XT[iy * sub:(iy + 1) * sub, ix * sub:(ix + 1) * sub].mean()
+    XTc = (XTc - XTc.min()) / (XTc.max() - XTc.min() + 1e-12)
+    return XTc
+
+
+XT_GRID = compute_xt_grid()
+
+
+def xt_value(x, y):
+    ix = int(np.clip((x / FIELD_X) * NX_XT, 0, NX_XT - 1))
+    iy = int(np.clip((y / FIELD_Y) * NY_XT, 0, NY_XT - 1))
+    return float(XT_GRID[iy, ix])
+
+
 # BASE PASSES
-#
 BASE_MATCHES_DATA = {
     "Connecticut United (03-27)": [
         ("PASS WON", 26.75, 68.34, 8.97, 51.05, None),
@@ -230,9 +300,7 @@ BASE_MATCHES_DATA = {
     ],
 }
 
-#
 # HELPERS
-#
 def apply_date_mapping(name: str) -> str:
     mapping = {
         "Connecticut United": "Connecticut United (03-27)",
@@ -249,87 +317,30 @@ def apply_date_mapping(name: str) -> str:
             return v
     return name
 
+
 def get_match_minutes(match_name: str) -> float:
-    """Returns the minutes played for a given match to calculate p90."""
     name_lower = match_name.lower()
-    if "connecticut" in name_lower: return 60.0
-    if "nashville" in name_lower: return 60.0
-    if "seongnam" in name_lower: return 32.0
-    if "red bulls" in name_lower: return 60.0
-    if "houston" in name_lower: return 63.0
-    if "vardar" in name_lower: return 65.0
+    if "connecticut" in name_lower:
+        return 60.0
+    if "nashville" in name_lower:
+        return 60.0
+    if "seongnam" in name_lower:
+        return 32.0
+    if "red bulls" in name_lower:
+        return 60.0
+    if "houston" in name_lower:
+        return 63.0
+    if "vardar" in name_lower:
+        return 65.0
     return 90.0
 
-def distance_to_goal(x, y):
-    return np.sqrt((GOAL_X - x) ** 2 + (GOAL_Y - y) ** 2)
 
-def get_lane(y):
-    if y >= LANE_LEFT_MIN:
-        return "left"
-    elif y < LANE_RIGHT_MAX:
-        return "right"
-    else:
-        return "center"
-
-def is_progressive_pass(x_start, y_start, x_end, y_end) -> bool:
-    if x_start &lt; 35: return False
-    start_dist = distance_to_goal(x_start, y_start)
-    end_dist = distance_to_goal(x_end, y_end)
-    if start_dist == 0: return False
-    return ((start_dist - end_dist) / start_dist) >= 0.25
-
-def classify_pass_direction(x_start, y_start, x_end, y_end) -> str:
-    dx = x_end - x_start
-    dy = y_end - y_start
-    dist = np.sqrt(dx**2 + dy**2)
-    angle_deg = np.degrees(np.arctan2(abs(dy), dx))
-    if angle_deg &lt;= 45.0: return "forward"
-    if angle_deg >= 135.0: return "backward"
-    if dist > LATERAL_MIN_DIST:
-        return "lateral_right" if dy > 0 else "lateral_left"
-    return "forward" if dx >= 0 else "backward"
-
-def distance_bonus(distance):
-    excess = np.maximum(0.0, np.asarray(distance, dtype=float) - D_REF)
-    return np.minimum(BONUS_CAP, np.log1p(excess / D_SCALE))
-
-@st.cache_data(show_spinner=False)
-def compute_xt_grid(NX=16, NY=12, sub=24):
-    ncols_hr = NX * sub
-    nrows_hr = NY * sub
-    xe = np.linspace(0, FIELD_X, ncols_hr + 1)
-    ye = np.linspace(0, FIELD_Y, nrows_hr + 1)
-    xc = (xe[:-1] + xe[1:]) / 2
-    yc_arr = (ye[:-1] + ye[1:]) / 2
-    Xc, Yc = np.meshgrid(xc, yc_arr)
-    xp = 0.01 + (Xc / FIELD_X) * 0.99
-    yc = 1.0 - np.abs((Yc / FIELD_Y) - 0.5) * 2.0
-    base = xp * (0.8 + 0.2 * yc)
-    base = (base - base.min()) / (base.max() - base.min() + 1e-12)
-    XT = base.copy()
-    XT = (XT - XT.min()) / (XT.max() - XT.min() + 1e-12)
-    XTc = np.zeros((NY, NX))
-    for iy in range(NY):
-        for ix in range(NX):
-            XTc[iy, ix] = XT[iy*sub:(iy+1)*sub, ix*sub:(ix+1)*sub].mean()
-    XTc = (XTc - XTc.min()) / (XTc.max() - XTc.min() + 1e-12)
-    return XTc
-
-XT_GRID = compute_xt_grid()
-
-def xt_value(x, y):
-    ix = int(np.clip((x / FIELD_X) * NX_XT, 0, NX_XT - 1))
-    iy = int(np.clip((y / FIELD_Y) * NY_XT, 0, NY_XT - 1))
-    return float(XT_GRID[iy, ix])
-
-#
-# DOCX PARSER
-#
 def read_docx_text(docx_path: Path) -> str:
     if not DOCX_AVAILABLE:
         raise RuntimeError("python-docx is not installed.")
     doc = Document(str(docx_path))
     return "\n".join(p.text for p in doc.paragraphs if p.text and p.text.strip())
+
 
 def parse_docx_events(raw_text: str) -> dict:
     lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
@@ -362,15 +373,16 @@ def parse_docx_events(raw_text: str) -> dict:
             matches[current_match].append((current_state, x1, y1, x2, y2, None))
     return {k: v for k, v in matches.items() if len(v) > 0}
 
+
 def load_docx_matches(docx_filename="Passes - Hudson Cicala.docx") -> dict:
     p = Path(docx_filename)
-    if not p.exists(): return {}
+    if not p.exists():
+        return {}
     txt = read_docx_text(p)
     return parse_docx_events(txt)
 
-#
+
 # DATA LOADING
-#
 docx_matches_data = {}
 try:
     docx_matches_data = load_docx_matches()
@@ -390,9 +402,7 @@ if len(combined_matches_data) == 0:
     st.error("Could not load data.")
     st.stop()
 
-#
 # BUILD DATAFRAMES & REORDER MATCHES
-#
 dfs_by_match = {}
 for match_name, events in combined_matches_data.items():
     dfm = pd.DataFrame(events, columns=["type", "x_start", "y_start", "x_end", "y_end", "video"])
@@ -400,15 +410,17 @@ for match_name, events in combined_matches_data.items():
     dfm["number"] = np.arange(1, len(dfm) + 1)
     dfm["is_won"] = dfm["type"].str.contains("WON", case=False)
     dfm["progressive"] = dfm.apply(
-        lambda r: r["is_won"] and is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
+        lambda r: r["is_won"] and is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]),
+        axis=1
     )
     dfm["direction"] = dfm.apply(
-        lambda r: classify_pass_direction(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
+        lambda r: classify_pass_direction(r["x_start"], r["y_start"], r["x_end"], r["y_end"]),
+        axis=1
     )
     dfm["is_forward"] = dfm["direction"] == "forward"
     dfm["is_backward"] = dfm["direction"] == "backward"
     dfm["is_lateral"] = dfm["direction"].isin(["lateral_left", "lateral_right"])
-    dfm["pass_distance"] = np.sqrt((dfm["x_end"] - dfm["x_start"])**2 + (dfm["y_end"] - dfm["y_start"])**2)
+    dfm["pass_distance"] = np.sqrt((dfm["x_end"] - dfm["x_start"]) ** 2 + (dfm["y_end"] - dfm["y_start"]) ** 2)
     dfm["xt_start"] = dfm.apply(lambda r: xt_value(r["x_start"], r["y_start"]), axis=1)
     dfm["xt_end"] = dfm.apply(lambda r: xt_value(r["x_end"], r["y_end"]), axis=1)
     dfm["delta_xt"] = np.where(dfm["is_won"], dfm["xt_end"] - dfm["xt_start"], 0.0)
@@ -419,75 +431,84 @@ for match_name, events in combined_matches_data.items():
 # REORDER LOGIC: Move Match 15-18 to be after Match 6
 items = list(dfs_by_match.items())
 if len(items) >= 18:
-    part1 = items[:6]   # Matches 1 to 6
-    part2 = items[14:18] # Matches 15 to 18
-    part3 = items[6:14]  # Matches 7 to 14
-    part4 = items[18:]   # Matches 19+
+    part1 = items[:6]
+    part2 = items[14:18]
+    part3 = items[6:14]
+    part4 = items[18:]
     dfs_by_match = dict(part1 + part2 + part3 + part4)
 
 df_all = pd.concat(dfs_by_match.values(), ignore_index=True)
 
-#
 # STATS & SCORES
-#
 def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     total = len(df)
     mins = get_match_minutes(match_name)
     p90_factor = 90.0 / mins if mins > 0 else 1.0
-    
     if total == 0:
         return {
-            "total_passes": 0, "successful_passes": 0, "unsuccessful_passes": 0, "accuracy_pct": 0.0,
-            "progressive_attempted": 0, "progressive_successful": 0, "progressive_accuracy_pct": 0.0,
-            "to_final_third_total": 0, "to_final_third_success": 0, "to_final_third_accuracy_pct": 0.0,
-            "fwd": 0, "fwd_pct": 0.0, "bwd": 0, "bwd_pct": 0.0, "lat": 0, "lat_pct": 0.0,
-            "pos_count": 0, "pos_pct": 0.0, "high_xt_pct": 0.0, "sum_dxt": 0.0,
-            "total_p90": 0.0, "prog_p90": 0.0, "f3_p90": 0.0, "xt_p90": 0.0, "neg_xt_p90": 0.0,
-            "minutes": mins, "long_acc_pct": 0.0, "high_xt_p90": 0.0, "dz_p90": 0.0
+            "total_passes": 0,
+            "successful_passes": 0,
+            "unsuccessful_passes": 0,
+            "accuracy_pct": 0.0,
+            "progressive_attempted": 0,
+            "progressive_successful": 0,
+            "progressive_accuracy_pct": 0.0,
+            "to_final_third_total": 0,
+            "to_final_third_success": 0,
+            "to_final_third_accuracy_pct": 0.0,
+            "fwd": 0,
+            "fwd_pct": 0.0,
+            "bwd": 0,
+            "bwd_pct": 0.0,
+            "lat": 0,
+            "lat_pct": 0.0,
+            "pos_count": 0,
+            "pos_pct": 0.0,
+            "high_xt_pct": 0.0,
+            "sum_dxt": 0.0,
+            "total_p90": 0.0,
+            "prog_p90": 0.0,
+            "f3_p90": 0.0,
+            "xt_p90": 0.0,
+            "neg_xt_p90": 0.0,
+            "minutes": mins,
+            "long_acc_pct": 0.0,
+            "high_xt_p90": 0.0,
+            "dz_p90": 0.0,
         }
-
     successful = int(df["is_won"].sum())
     unsuccessful = total - successful
     accuracy = successful / total * 100.0
-
     progressive_total = int(df["progressive"].sum())
-    progressive_unsuccessful = int((~df["is_won"] & df.apply(
-        lambda r: is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
-    )).sum())
+    progressive_unsuccessful = int(
+        (~df["is_won"] & df.apply(
+            lambda r: is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]),
+            axis=1
+        )).sum()
+    )
     progressive_attempted = progressive_total + progressive_unsuccessful
     progressive_accuracy = (progressive_total / progressive_attempted * 100.0) if progressive_attempted else 0.0
-
-    to_final_third = (df["x_start"] &lt; FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)
+    to_final_third = (df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)
     to_final_third_total = int(to_final_third.sum())
     to_final_third_success = int((to_final_third & df["is_won"]).sum())
     to_final_third_accuracy = (to_final_third_success / to_final_third_total * 100.0) if to_final_third_total else 0.0
-
-    # Long passes (> 25m)
     long_passes = df[df["pass_distance"] > 25.0]
     long_total = len(long_passes)
     long_success = int(long_passes["is_won"].sum())
     long_acc_pct = (long_success / long_total * 100.0) if long_total > 0 else 0.0
-
-    # Dangerous Zone Passes (Last column OR center of the 5th column)
     dz_mask = df["is_won"] & (
-        (df["x_end"] >= 100.0) |
-        ((df["x_end"] >= 80.0) & (df["x_end"] &lt; 100.0) & (df["y_end"] >= LANE_RIGHT_MAX) & (df["y_end"] &lt; LANE_LEFT_MIN))
+        (df["x_end"] >= 100.0)
+        | ((df["x_end"] >= 80.0) & (df["x_end"] < 100.0) & (df["y_end"] >= LANE_RIGHT_MAX) & (df["y_end"] < LANE_LEFT_MIN))
     )
     dz_passes = int(dz_mask.sum())
-
     fwd = int(df["is_forward"].sum())
     bwd = int(df["is_backward"].sum())
     lat = int(df["is_lateral"].sum())
-
     pos_count = int((df["is_won"] & (df["delta_xt_adj"] > 0)).sum())
     pos_pct = (pos_count / total * 100.0) if total > 0 else 0.0
-
     high_xt = int((df["delta_xt_adj"] > 0.1).sum())
     sum_dxt = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
-    
-    # Negative Pass Impact (passes that lost threat)
-    neg_xt = float(df.loc[df["is_won"] & (df["delta_xt_adj"] &lt; 0), "delta_xt_adj"].sum())
-
+    neg_xt = float(df.loc[df["is_won"] & (df["delta_xt_adj"] < 0), "delta_xt_adj"].sum())
     return {
         "total_passes": total,
         "successful_passes": successful,
@@ -499,9 +520,12 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "to_final_third_total": to_final_third_total,
         "to_final_third_success": to_final_third_success,
         "to_final_third_accuracy_pct": round(to_final_third_accuracy, 2),
-        "fwd": fwd, "fwd_pct": round(fwd / total * 100.0, 1),
-        "bwd": bwd, "bwd_pct": round(bwd / total * 100.0, 1),
-        "lat": lat, "lat_pct": round(lat / total * 100.0, 1),
+        "fwd": fwd,
+        "fwd_pct": round(fwd / total * 100.0, 1),
+        "bwd": bwd,
+        "bwd_pct": round(bwd / total * 100.0, 1),
+        "lat": lat,
+        "lat_pct": round(lat / total * 100.0, 1),
         "pos_count": pos_count,
         "pos_pct": round(pos_pct, 1),
         "high_xt_pct": round(high_xt / total * 100.0, 1),
@@ -514,15 +538,17 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
         "minutes": mins,
         "long_acc_pct": round(long_acc_pct, 1),
         "high_xt_p90": round(high_xt * p90_factor, 2),
-        "dz_p90": round(dz_passes * p90_factor, 2)
+        "dz_p90": round(dz_passes * p90_factor, 2),
     }
+
 
 def compute_match_scores(dfs_dict):
     records = []
     for m_name, df_m in dfs_dict.items():
         s = compute_stats(df_m, m_name)
         total_passes = s['total_passes']
-        if total_passes == 0: continue
+        if total_passes == 0:
+            continue
         records.append({
             'match': m_name,
             'xt_p90': s['xt_p90'],
@@ -535,19 +561,18 @@ def compute_match_scores(dfs_dict):
             'long_acc_pct': s['long_acc_pct'],
             'high_xt_p90': s['high_xt_p90'],
             'dz_p90': s['dz_p90'],
-            'prog_acc_pct': s['progressive_accuracy_pct']
+            'prog_acc_pct': s['progressive_accuracy_pct'],
         })
     df_scores = pd.DataFrame(records)
-    if df_scores.empty: return df_scores
+    if df_scores.empty:
+        return df_scores
 
-    # Absolute scale normalization with fixed floor and ceiling
     def normalize_fixed(series, val_min, val_max):
         clipped_series = series.clip(lower=val_min, upper=val_max)
-        if val_max == val_min: 
+        if val_max == val_min:
             return pd.Series([70.0] * len(series))
         return 40 + ((clipped_series - val_min) / (val_max - val_min)) * 60
 
-    # Apply absolute limits
     df_scores['xt_norm'] = normalize_fixed(df_scores['xt_p90'], val_min=0.05, val_max=0.45)
     df_scores['prog_norm'] = normalize_fixed(df_scores['prog_p90'], val_min=1.0, val_max=15.0)
     df_scores['f3_norm'] = normalize_fixed(df_scores['f3_p90'], val_min=1.0, val_max=15.0)
@@ -555,74 +580,69 @@ def compute_match_scores(dfs_dict):
     df_scores['total_p90_norm'] = normalize_fixed(df_scores['total_p90'], val_min=10.0, val_max=85.0)
     df_scores['neg_xt_norm'] = normalize_fixed(df_scores['neg_xt_p90'], val_min=-0.15, val_max=0.00)
 
-    # Weights
-    df_scores['Grade'] = (df_scores['xt_norm'] * 0.30) + \
-                         (df_scores['prog_norm'] * 0.20) + \
-                         (df_scores['f3_norm'] * 0.20) + \
-                         (df_scores['pos_pct_norm'] * 0.10) + \
-                         (df_scores['total_p90_norm'] * 0.10) + \
-                         (df_scores['neg_xt_norm'] * 0.10)
+    df_scores['Grade'] = (
+        df_scores['xt_norm'] * 0.30
+        + df_scores['prog_norm'] * 0.20
+        + df_scores['f3_norm'] * 0.20
+        + df_scores['pos_pct_norm'] * 0.10
+        + df_scores['total_p90_norm'] * 0.10
+        + df_scores['neg_xt_norm'] * 0.10
+    )
     df_scores['Grade'] = df_scores['Grade'].round(1)
     return df_scores
 
-#
+
 # UI HELPERS
-#
 def _safe_pct_diff(a: float, b: float) -> float:
     base = max(abs(b), 1.0)
     pct = (abs(a - b) / base) * 100.0
     return min(pct, 999.0)
 
+
 def _arrow_html(val_game: float, val_avg: float) -> str:
-    if np.isclose(val_game, val_avg, atol=1e-9): return ""
-    if abs(val_game) &lt; 1 and abs(val_avg) &lt; 1: return ""
+    if np.isclose(val_game, val_avg, atol=1e-9):
+        return ""
+    if abs(val_game) < 1 and abs(val_avg) < 1:
+        return ""
     if val_game > val_avg:
         pct = _safe_pct_diff(val_game, val_avg)
-        return f'<span class="metric-arrow arrow-up">↑ {pct:.0f}%</span>'
+        return f'<span class="arrow-up">↑ {pct:.0f}%</span>'
     else:
         pct = _safe_pct_diff(val_avg, val_game)
-        return f'<span class="metric-arrow arrow-down">↓ {pct:.0f}%</span>'
+        return f'<span class="arrow-down">↓ {pct:.0f}%</span>'
 
-def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game="", border="#3b82f6"):
+
+def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, border="#3b82f6"):
     disp_game = str(val_game) if disp_game is None else disp_game
     disp_avg = str(val_avg) if disp_avg is None else disp_avg
     arrow = _arrow_html(float(val_game), float(val_avg))
-    sub_game_html = f'<span>{sub_game}</span>' if sub_game else "<span></span>"
-    
     html = (
-        f'<div class="metric-box" style="border-left-color: {border};">'
-        f'<div class="metric-title">{label}</div>'
-        f'<div class="metric-value-row">'
-        f'<span class="metric-value">{disp_game}</span>'
-        f'{arrow}'
+        f'<div class="metric-comparison" style="border-left: 3px solid {border};">'
+        f'<div class="cmp-label">{label}</div>'
+        f'<div><span class="cmp-value">{disp_game}</span>{arrow}</div>'
+        f'<div class="cmp-sub">AVG: {disp_avg}</div>'
         f'</div>'
-        f'<div class="metric-sub">'
-        f'{sub_game_html}'
-        f'<span>AVG: {disp_avg}</span>'
-        f'</div></div>'
     )
     st.markdown(html, unsafe_allow_html=True)
 
+
 def summary_box(label, value, sub_value="", border="#3b82f6"):
-    """A simplified metric box for overall stats without comparison arrows"""
-    sub_html = f'<div style="font-size: 12px; color: #64748b; margin-top: 4px;">{sub_value}</div>' if sub_value else ""
+    sub_html = f'<div class="sb-sub">{sub_value}</div>' if sub_value else ""
     html = (
-        f'<div class="metric-box" style="border-left-color: {border};">'
-        f'<div class="metric-title">{label}</div>'
-        f'<div class="metric-value-row">'
-        f'<span class="metric-value">{value}</span>'
-        f'</div>'
+        f'<div class="summary-box" style="border-left: 3px solid {border};">'
+        f'<div class="sb-label">{label}</div>'
+        f'<div class="sb-value">{value}</div>'
         f'{sub_html}'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
 
-def row_label(text, cls="row-label-blue"):
-    st.markdown(f'<div class="{cls}">{text}</div>', unsafe_allow_html=True)
 
-#
+def row_label(text, cls="row-label-blue"):
+    st.markdown(f'<div class="row-label {cls}">{text}</div>', unsafe_allow_html=True)
+
+
 # DRAW HELPERS (PITCH)
-#
 def _base_pitch(bg="#1a1a2e"):
     pitch = Pitch(pitch_type="statsbomb", pitch_color=bg, line_color="#ffffff", line_alpha=0.95)
     fig, ax = pitch.draw(figsize=(FIG_W, FIG_H))
@@ -632,13 +652,21 @@ def _base_pitch(bg="#1a1a2e"):
     ax.axvline(x=HALF_LINE_X, color="#ffffff", lw=0.7, alpha=0.12, linestyle="--")
     return fig, ax, pitch
 
+
 def _attack_arrow(fig, has_cbar=False):
     ox = -0.04 if has_cbar else 0.0
     fig.patches.append(FancyArrowPatch(
         (0.44 + ox, 0.045), (0.56 + ox, 0.045),
-        transform=fig.transFigure, arrowstyle="-|>", mutation_scale=11, linewidth=1.6, color="#aaaaaa"
+        transform=fig.transFigure,
+        arrowstyle="-|>", mutation_scale=11,
+        linewidth=1.6, color="#aaaaaa"
     ))
-    fig.text(0.50 + ox, 0.012, "Attacking Direction", ha="center", va="bottom", transform=fig.transFigure, fontsize=7.5, color="#aaaaaa")
+    fig.text(
+        0.50 + ox, 0.012, "Attacking Direction",
+        ha="center", va="bottom", transform=fig.transFigure,
+        fontsize=7.5, color="#aaaaaa"
+    )
+
 
 def _save_fig(fig):
     fig.canvas.draw()
@@ -647,30 +675,44 @@ def _save_fig(fig):
     buf.seek(0)
     return Image.open(buf)
 
+
 def draw_pass_map(df):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
         is_lost = not row["is_won"]
         is_prog = bool(row["progressive"])
-        if is_lost: color, alpha = COLOR_FAIL, 0.72
-        elif is_prog: color, alpha = COLOR_PROGRESSIVE, 0.88
-        else: color, alpha = COLOR_SUCCESS, ALPHA_SUCCESS
-        
-        pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
-                     color=color, width=1.3, headwidth=2.0, headlength=2.0, ax=ax, zorder=3, alpha=alpha)
-        pitch.scatter(row["x_start"], row["y_start"], s=32, marker="o", color=color,
-                      edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=alpha)
-
-    leg = ax.legend(handles=[
-        Line2D([0], [0], color=COLOR_SUCCESS, lw=2.0, label="Completed", alpha=0.65),
-        Line2D([0], [0], color=COLOR_PROGRESSIVE, lw=2.0, label="Progressive", alpha=0.90),
-        Line2D([0], [0], color=COLOR_FAIL, lw=2.0, label="Incomplete", alpha=0.90),
-    ], loc="upper left", bbox_to_anchor=(0.01, 0.99), frameon=True, facecolor="#1a1a2e", edgecolor="#444466", fontsize=6.5, labelspacing=0.35, borderpad=0.4)
-    for t in leg.get_texts(): t.set_color("white")
+        if is_lost:
+            color, alpha = COLOR_FAIL, 0.72
+        elif is_prog:
+            color, alpha = COLOR_PROGRESSIVE, 0.88
+        else:
+            color, alpha = COLOR_SUCCESS, ALPHA_SUCCESS
+        pitch.arrows(
+            row["x_start"], row["y_start"], row["x_end"], row["y_end"],
+            color=color, width=1.3, headwidth=2.0, headlength=2.0,
+            ax=ax, zorder=3, alpha=alpha
+        )
+        pitch.scatter(
+            row["x_start"], row["y_start"],
+            s=32, marker="o", color=color, edgecolors="white", linewidths=0.6,
+            ax=ax, zorder=6, alpha=alpha
+        )
+    leg = ax.legend(
+        handles=[
+            Line2D([0], [0], color=COLOR_SUCCESS, lw=2.0, label="Completed", alpha=0.65),
+            Line2D([0], [0], color=COLOR_PROGRESSIVE, lw=2.0, label="Progressive", alpha=0.90),
+            Line2D([0], [0], color=COLOR_FAIL, lw=2.0, label="Incomplete", alpha=0.90),
+        ],
+        loc="upper left", bbox_to_anchor=(0.01, 0.99),
+        frameon=True, facecolor="#1a1a2e", edgecolor="#444466",
+        fontsize=6.5, labelspacing=0.35, borderpad=0.4
+    )
+    for t in leg.get_texts():
+        t.set_color("white")
     leg.get_frame().set_alpha(0.90)
-
     _attack_arrow(fig)
     return _save_fig(fig), fig
+
 
 def draw_corridor_heatmap(df):
     df_s = df[df["is_won"]].copy()
@@ -685,115 +727,127 @@ def draw_corridor_heatmap(df):
         arr = np.zeros(6, dtype=int)
         for i in range(6):
             x0_, x1_ = x_bins[i], x_bins[i + 1]
-            arr[i] = int(((df_s["x_end"] >= x0_) & (df_s["x_end"] &lt; x1_) &
-                          (df_s["y_end"] >= y0) & (df_s["y_end"] &lt; y1)).sum())
+            arr[i] = int((
+                (df_s["x_end"] >= x0_)
+                & (df_s["x_end"] < x1_)
+                & (df_s["y_end"] >= y0)
+                & (df_s["y_end"] < y1)
+            ).sum())
         counts[cname] = arr
-
     all_vals = np.concatenate([counts[c] for c in counts])
     vmax = max(1, int(all_vals.max()))
-    cmap = LinearSegmentedColormap.from_list("wr", ["#ffffff", "#ffecec", "#ffbfbf", "#ff8080", "#ff3b3b", "#ff0000"])
+    cmap = LinearSegmentedColormap.from_list("wr", [
+        "#ffffff", "#ffecec", "#ffbfbf", "#ff8080", "#ff3b3b", "#ff0000"
+    ])
     norm = Normalize(vmin=0, vmax=vmax)
     threshold = max(1, vmax * 0.35)
-
     fig, ax, pitch = _base_pitch()
     for cname, (y0, y1) in corridors.items():
         for i in range(6):
             x0_, x1_ = x_bins[i], x_bins[i + 1]
             value = counts[cname][i]
-            ax.add_patch(Rectangle((x0_, y0), x1_ - x0_, y1 - y0,
-                                   facecolor=cmap(norm(value)), edgecolor=(1, 1, 1, 0.12), lw=0.5, alpha=0.95, zorder=2))
-            ax.text((x0_ + x1_) / 2, (y0 + y1) / 2, str(value),
-                    ha="center", va="center", color="#000000" if value &lt;= threshold else "#ffffff",
-                    fontsize=9, fontweight="700" if value >= vmax * 0.5 else "600", zorder=4)
-
+            ax.add_patch(Rectangle(
+                (x0_, y0), x1_ - x0_, y1 - y0,
+                facecolor=cmap(norm(value)),
+                edgecolor=(1, 1, 1, 0.12), lw=0.5, alpha=0.95, zorder=2
+            ))
+            ax.text(
+                (x0_ + x1_) / 2, (y0 + y1) / 2, str(value),
+                ha="center", va="center",
+                color="#000000" if value <= threshold else "#ffffff",
+                fontsize=9, fontweight="700" if value >= vmax * 0.5 else "600",
+                zorder=4
+            )
     ax.axhline(y=LANE_LEFT_MIN, color="#ffffff", lw=0.5, alpha=0.15, linestyle="--", zorder=3)
     ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.5, alpha=0.15, linestyle="--", zorder=3)
-
     _attack_arrow(fig)
     return _save_fig(fig), fig
+
 
 def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
     segs = 12
     ts = np.linspace(0.0, 1.0, segs + 1)
     for i in range(segs):
         t0, t1 = ts[i], ts[i + 1]
-        xa, ya = x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0
-        xb, yb = x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1
+        xa = x0 + (x1 - x0) * t0
+        ya = y0 + (y1 - y0) * t0
+        xb = x0 + (x1 - x0) * t1
+        yb = y0 + (y1 - y0) * t1
         alpha = 0.85 * (0.15 + 0.85 * t1)
         lw = 2.5 * (0.80 + 0.20 * t1)
         ax.plot([xa, xb], [ya, yb], color=color, linewidth=lw, alpha=alpha, zorder=4, solid_capstyle="round")
     ax.scatter(x0, y0, s=20, marker="o", facecolors="none", edgecolors=color, linewidths=1.5, zorder=5, alpha=0.85)
     ax.scatter(x1, y1, s=32, marker="o", facecolors=color, edgecolors="white", linewidths=0.9, zorder=6, alpha=0.85)
 
+
 def draw_top5_xt_map(df):
     fig, ax, pitch = _base_pitch()
-    top5 = (df[(df["is_won"]) & (df["delta_xt_adj"] > 0)]
-            .sort_values("delta_xt_adj", ascending=False)
-            .head(5).copy().reset_index(drop=True))
-
+    top5 = (
+        df[(df["is_won"]) & (df["delta_xt_adj"] > 0)]
+        .sort_values("delta_xt_adj", ascending=False)
+        .head(5).copy().reset_index(drop=True)
+    )
     if not top5.empty:
         for _, row in top5.iterrows():
             val = float(row["delta_xt_adj"])
             color = CMAP_TOP10(NORM_TOP10(np.clip(val, 0.05, 0.40)))
             _draw_comet_arrow(ax, float(row["x_start"]), float(row["y_start"]), float(row["x_end"]), float(row["y_end"]), color)
-
-        sm = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
-        cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
-        cbar.set_label("Pass Impact", color="#ffffff", fontsize=8)
-        cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
-        plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
-
+    sm = plt.cm.ScalarMappable(cmap=CMAP_TOP10, norm=NORM_TOP10)
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
+    cbar.set_label("Pass Impact", color="#ffffff", fontsize=8)
+    cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
+    plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
 
-#
+
 # PLOTLY CHARTS
-#
 def draw_total_passes_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["total_p90"]
     mean_val = y.mean()
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
         line=dict(color="#00d2ff", width=3, shape='spline'),
         marker=dict(size=8, color="#00d2ff"),
         fill='tozeroy', fillcolor='rgba(0, 210, 255, 0.05)',
-        name="Total Passes", hovertemplate="<b>%{customdata}</b><br>Total Passes: %{y:.1f}<extra></extra>"
+        name="Total Passes",
+        hovertemplate="%{customdata}<br>Total Passes: %{y:.1f}"
     ))
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_val]*len(x_labels), mode='lines',
+        x=x_labels, y=[mean_val] * len(x_labels),
+        mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
         name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
     ))
-
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=350, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Total Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
+
 
 def draw_grade_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["Grade"]
     mean_grade = y.mean()
-
-    # Metrics for Tooltip Feature
     metrics = {
         'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
         'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
         'Final 3rd': ('f3_p90', df_scores['f3_p90'].mean()),
         '% Pos Impact': ('pos_pct', df_scores['pos_pct'].mean()),
-        'Total Passes': ('total_p90', df_scores['total_p90'].mean())
+        'Total Passes': ('total_p90', df_scores['total_p90'].mean()),
     }
-    
     hover_texts = []
     for _, row in df_scores.iterrows():
         diffs = {}
@@ -802,136 +856,148 @@ def draw_grade_chart(df_scores):
                 diffs[name] = 0
             else:
                 diffs[name] = ((row[col] - avg) / avg) * 100
-        
         if row['Grade'] >= mean_grade:
             best_metric = max(diffs, key=diffs.get)
             val = diffs[best_metric]
-            hover_texts.append(f"<br><span style='font-size:11px; color:#94a3b8'>Highlight:</span> <b>{best_metric}</b> <span style='color:#10b981'>(+{val:.1f}%)</span>")
+            hover_texts.append(f"<br>Highlight: {best_metric} (+{val:.1f}%)")
         else:
             worst_metric = min(diffs, key=diffs.get)
             val = diffs[worst_metric]
-            hover_texts.append(f"<br><span style='font-size:11px; color:#94a3b8'>Issue:</span> <b>{worst_metric}</b> <span style='color:#ef4444'>({val:.1f}%)</span>")
-            
+            hover_texts.append(f"<br>Issue: {worst_metric} ({val:.1f}%)")
     customdata = np.stack((df_scores["match"], hover_texts), axis=-1)
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=customdata, mode='lines+markers',
+        x=x_labels, y=y,
+        customdata=customdata,
+        mode='lines+markers',
         line=dict(color="#2F80ED", width=3, shape='spline'),
         marker=dict(size=8, color="#2F80ED"),
         fill='tozeroy', fillcolor='rgba(47, 128, 237, 0.05)',
-        name="Grade", hovertemplate="<b>%{customdata[0]}</b><br>Grade: %{y:.1f}%{customdata[1]}<extra></extra>"
+        name="Grade",
+        hovertemplate="%{customdata[0]}<br>Grade: %{y:.1f}<br>%{customdata[1]}"
     ))
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_grade]*len(x_labels), mode='lines',
+        x=x_labels, y=[mean_grade] * len(x_labels),
+        mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
         name=f"Avg: {mean_grade:.1f}", hoverinfo='skip'
     ))
-
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=400, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(range=[40, 100], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Grade Evolution", font=dict(size=14, color="#ffffff"))
     )
     return fig
+
 
 def draw_progressive_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["prog_p90"]
     mean_prog = y.mean()
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
         line=dict(color="#10b981", width=3, shape='spline'),
         marker=dict(size=8, color="#10b981"),
         fill='tozeroy', fillcolor='rgba(16, 185, 129, 0.05)',
-        name="Progressive Passes", hovertemplate="<b>%{customdata}</b><br>Progressive: %{y:.1f}<extra></extra>"
+        name="Progressive Passes",
+        hovertemplate="%{customdata}<br>Progressive: %{y:.1f}"
     ))
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_prog]*len(x_labels), mode='lines',
+        x=x_labels, y=[mean_prog] * len(x_labels),
+        mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
         name=f"Avg: {mean_prog:.1f}", hoverinfo='skip'
     ))
-
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=350, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
+
 
 def draw_final_third_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["f3_p90"]
     mean_f3 = y.mean()
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
         line=dict(color="#8b5cf6", width=3, shape='spline'),
         marker=dict(size=8, color="#8b5cf6"),
         fill='tozeroy', fillcolor='rgba(139, 92, 246, 0.05)',
-        name="Final Third Passes", hovertemplate="<b>%{customdata}</b><br>Final Third: %{y:.1f}<extra></extra>"
+        name="Final Third Passes",
+        hovertemplate="%{customdata}<br>Final Third: %{y:.1f}"
     ))
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_f3]*len(x_labels), mode='lines',
+        x=x_labels, y=[mean_f3] * len(x_labels),
+        mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
         name=f"Avg: {mean_f3:.1f}", hoverinfo='skip'
     ))
-
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=350, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Final Third Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
+
 
 def draw_xt_chart(df_scores):
     fig = go.Figure()
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y = df_scores["xt_p90"]
     mean_xt = y.mean()
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y, customdata=df_scores["match"], mode='lines+markers',
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
         line=dict(color="#f59e0b", width=3, shape='spline'),
         marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy', fillcolor='rgba(245, 158, 11, 0.05)',
-        name="Σ Pass Impact", hovertemplate="<b>%{customdata}</b><br>Σ Pass Impact: %{y:.2f}<extra></extra>"
+        name="Σ Pass Impact",
+        hovertemplate="%{customdata}<br>Σ Pass Impact: %{y:.2f}"
     ))
-
     fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_xt]*len(x_labels), mode='lines',
+        x=x_labels, y=[mean_xt] * len(x_labels),
+        mode='lines',
         line=dict(color="#ffd700", width=1.5, dash='dash'),
         name=f"Avg: {mean_xt:.2f}", hoverinfo='skip'
     ))
-
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=350, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Σ Pass Impact", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
-def draw_comparison_bar(title, val_first, val_last, suffix=""):
-    """Helper function to draw clean comparison bars for Evolution tab"""
-    color_last = "#10b981" if val_last >= val_first else "#E07070"
 
+def draw_comparison_bar(title, val_first, val_last, suffix=""):
+    color_last = "#10b981" if val_last >= val_first else "#E07070"
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=["First 9 Matches", "Last 9 Matches"],
@@ -940,13 +1006,16 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
         text=[f"{val_first:.2f}{suffix}", f"{val_last:.2f}{suffix}"],
         textposition='auto',
         width=[0.35, 0.35],
-        hovertemplate="%{x}<br>" + title + ": %{y:.2f}" + suffix + "<extra></extra>"
+        hovertemplate="%{x}<br>" + title + ": %{y:.2f}" + suffix + ""
     ))
-
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        template="plotly_dark",
+        paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
         height=250, margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(range=[0, max(val_first, val_last) * 1.2], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        yaxis=dict(
+            range=[0, max(val_first, val_last) * 1.2],
+            showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False
+        ),
         xaxis=dict(showgrid=False, zeroline=False),
         title=dict(text=title, font=dict(size=14, color="#a0a0b5")),
         showlegend=False,
@@ -954,32 +1023,26 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
     )
     return fig
 
-#
+
 # SIDEBAR
-#
 st.sidebar.title("Pass Dashboard")
 st.sidebar.markdown("### 2026 Matches")
 st.sidebar.markdown("#### Hudson Cicala")
 
-# Add image if exists
 img_path = "Captura de tela 2026-06-02 154425.png"
 if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
 
 st.sidebar.markdown("---")
 
-# Calculate averages across all loaded matches globally
 num_matches = len(dfs_by_match)
 all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 
-#
 # TABS & LAYOUT
-#
 tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Evolution"])
 
 with tab_graf:
     st.markdown("### Overall Performance Summary")
-    
     if num_matches > 0:
         total_passes_all = sum(s['total_passes'] for s in all_match_stats)
         total_succ_all = sum(s['successful_passes'] for s in all_match_stats)
@@ -987,14 +1050,13 @@ with tab_graf:
         total_f3_all = sum(s['to_final_third_success'] for s in all_match_stats)
         total_pos_all = sum(s['pos_count'] for s in all_match_stats)
         total_xt_all = sum(s['sum_dxt'] for s in all_match_stats)
-
         avg_acc = sum(s['accuracy_pct'] for s in all_match_stats) / num_matches
         avg_prog_p90 = sum(s['prog_p90'] for s in all_match_stats) / num_matches
         avg_f3_p90 = sum(s['f3_p90'] for s in all_match_stats) / num_matches
         avg_pos_pct = sum(s['pos_pct'] for s in all_match_stats) / num_matches
         avg_xt_p90 = sum(s['xt_p90'] for s in all_match_stats) / num_matches
         avg_total_p90 = sum(s['total_p90'] for s in all_match_stats) / num_matches
-        
+
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
             row_label("📋 Passes (Avg p90)", "row-label-blue")
@@ -1008,49 +1070,42 @@ with tab_graf:
             row_label("⚡ Pass Impact (Avg p90)", "row-label-amber")
             summary_box("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
             summary_box("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
-            
-        st.markdown(f"<div style='text-align: right; color: #94a3b8; font-size: 14px; margin-top: 8px;'><b>{num_matches} matches collected</b></div>", unsafe_allow_html=True)
-            
-    st.markdown("<br>", unsafe_allow_html=True)
 
-    df_scores = compute_match_scores(dfs_by_match)
-    if not df_scores.empty:
-        # Chart 1: General Grade (Blue) - FIRST CHART
-        fig_scores = draw_grade_chart(df_scores)
-        st.plotly_chart(fig_scores, use_container_width=True)
+        st.markdown(f"<small>{num_matches} matches collected</small>", unsafe_allow_html=True)
+        st.markdown("", unsafe_allow_html=True)
 
-        # Grade explanation expander - NOW BELOW the grade chart, simplified text
-        with st.expander("How is the Grade calculated?"):
-            st.markdown("""
-            **Metrics evaluated:**
-            - **Pass Impact:** Measures actual danger created by passes.
-            - **Progressive Passes:** Line-breaking ability.
-            - **Final Third Passes:** Attacking presence in dangerous zones.
-            - **% Positive Pass Impact:** Efficiency of threat generation.
-            - **Total Passes:** Overall involvement.
-            - **Negative Pass Impact:** Penalty for passes that lose threat.
-            """)
+        df_scores = compute_match_scores(dfs_by_match)
+        if not df_scores.empty:
+            fig_scores = draw_grade_chart(df_scores)
+            st.plotly_chart(fig_scores, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### Stats")
+            with st.expander("How is the Grade calculated?"):
+                st.markdown("""
+                **Metrics evaluated:**
+                - **Pass Impact:** Measures actual danger created by passes.
+                - **Progressive Passes:** Line-breaking ability.
+                - **Final Third Passes:** Attacking presence in dangerous zones.
+                - **% Positive Pass Impact:** Efficiency of threat generation.
+                - **Total Passes:** Overall involvement.
+                - **Negative Pass Impact:** Penalty for passes that lose threat.
+                """)
 
-        # Chart: Total Passes (Cyan)
-        fig_total = draw_total_passes_chart(df_scores)
-        st.plotly_chart(fig_total, use_container_width=True)
+            st.markdown("", unsafe_allow_html=True)
+            st.markdown("### Stats")
 
-        # Chart: Progressive Passes (Green)
-        fig_prog = draw_progressive_chart(df_scores)
-        st.plotly_chart(fig_prog, use_container_width=True)
+            fig_total = draw_total_passes_chart(df_scores)
+            st.plotly_chart(fig_total, use_container_width=True)
 
-        # Chart: Final Third Passes (Purple)
-        fig_f3 = draw_final_third_chart(df_scores)
-        st.plotly_chart(fig_f3, use_container_width=True)
+            fig_prog = draw_progressive_chart(df_scores)
+            st.plotly_chart(fig_prog, use_container_width=True)
 
-        # Chart: Σ Pass Impact (Amber)
-        fig_xt = draw_xt_chart(df_scores)
-        st.plotly_chart(fig_xt, use_container_width=True)
-    else:
-        st.warning("Not enough data to generate charts.")
+            fig_f3 = draw_final_third_chart(df_scores)
+            st.plotly_chart(fig_f3, use_container_width=True)
+
+            fig_xt = draw_xt_chart(df_scores)
+            st.plotly_chart(fig_xt, use_container_width=True)
+        else:
+            st.warning("Not enough data to generate charts.")
 
 with tab_dash:
     st.markdown("### Match Filters")
@@ -1062,20 +1117,22 @@ with tab_dash:
         pass_filter = st.radio(
             "Pass Type",
             ["All", "Successful", "Unsuccessful", "Progressive", "Final Third"],
-            index=0,
-            horizontal=True
+            index=0, horizontal=True
         )
 
     def apply_filter(df):
-        if pass_filter == "Successful": return df[df["is_won"]].copy()
-        if pass_filter == "Unsuccessful": return df[~df["is_won"]].copy()
-        if pass_filter == "Progressive": return df[df["progressive"]].copy()
-        if pass_filter == "Final Third": return df[(df["x_start"] &lt; FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)].copy()
+        if pass_filter == "Successful":
+            return df[df["is_won"]].copy()
+        if pass_filter == "Unsuccessful":
+            return df[~df["is_won"]].copy()
+        if pass_filter == "Progressive":
+            return df[df["progressive"]].copy()
+        if pass_filter == "Final Third":
+            return df[(df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)].copy()
         return df.copy()
 
     df_game = apply_filter(dfs_by_match[selected_match].copy())
     s_game = compute_stats(df_game, selected_match)
-
     s_avg = {}
     if num_matches > 0:
         for k in all_match_stats[0].keys():
@@ -1088,58 +1145,63 @@ with tab_dash:
 
     st.markdown("---")
 
-    # --- ROW 1: MAPS ---
-    img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
-    img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
-    img_xt_game, fig_xt_game = draw_top5_xt_map(df_game); plt.close(fig_xt_game)
+    img_pm_game, fig_pm_game = draw_pass_map(df_game)
+    plt.close(fig_pm_game)
+    img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game)
+    plt.close(fig_ht_game)
+    img_xt_game, fig_xt_game = draw_top5_xt_map(df_game)
+    plt.close(fig_xt_game)
 
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
-        row_label(f"🟦 Pass Map", "row-label-blue")
+        row_label("Pass Map", "row-label-blue")
         st.image(img_pm_game, use_container_width=True)
     with col_m2:
-        row_label(f"🟩 Zone Heatmap", "row-label-green")
+        row_label("Zone Heatmap", "row-label-green")
         st.image(img_ht_game, use_container_width=True)
     with col_m3:
-        row_label(f"🟡 Top 5 Pass Impact", "row-label-amber")
+        row_label("Top 5 Pass Impact", "row-label-amber")
         st.image(img_xt_game, use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("", unsafe_allow_html=True)
 
-    # --- ROW 2: STATS (2 Metrics per Column) ---
     col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
-        row_label("📋 Pass Overview", "row-label-blue")
+        row_label("Pass Overview", "row-label-blue")
         cmp_box("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}", border=C_BLUE)
-        cmp_box("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"], 
-                disp_game=f"{s_game['accuracy_pct']:.1f}%", disp_avg=f"{s_avg['accuracy_pct']:.1f}%", border=C_BLUE)
-
+        cmp_box(
+            "Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
+            disp_game=f"{s_game['accuracy_pct']:.1f}%",
+            disp_avg=f"{s_avg['accuracy_pct']:.1f}%", border=C_BLUE
+        )
     with col_s2:
-        row_label("📊 Advanced", "row-label-green")
+        row_label("Advanced", "row-label-green")
         cmp_box("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}", border=C_GREEN)
         cmp_box("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}", border=C_GREEN)
-
     with col_s3:
-        row_label("⚡ Pass Impact", "row-label-amber")
-        cmp_box("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"], 
-                disp_game=f"{s_game['pos_pct']:.1f}%", disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER)
-        cmp_box("Σ Pass Impact", s_game["xt_p90"], f"{s_avg['xt_p90']:.3f}", 
-                disp_game=f"{s_game['xt_p90']:.3f}", disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER)
+        row_label("Pass Impact", "row-label-amber")
+        cmp_box(
+            "% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
+            disp_game=f"{s_game['pos_pct']:.1f}%",
+            disp_avg=f"{s_avg['pos_pct']:.1f}%", border=C_AMBER
+        )
+        cmp_box(
+            "Σ Pass Impact", s_game["xt_p90"], s_avg["xt_p90"],
+            disp_game=f"{s_game['xt_p90']:.3f}",
+            disp_avg=f"{s_avg['xt_p90']:.3f}", border=C_AMBER
+        )
 
 with tab_evo:
     st.markdown("### First 9 vs Last 9 Matches")
     st.markdown("Comparing the average performance between the first 9 and the last 9 matches to analyze player evolution.")
-    
+
     df_scores = compute_match_scores(dfs_by_match)
     if len(df_scores) > 0:
-        if len(df_scores) &lt; 18:
+        if len(df_scores) < 18:
             st.info(f"Note: Only {len(df_scores)} matches available. The comparison will overlap or use available data.")
-        
         first_9 = df_scores.head(9)
         last_9 = df_scores.tail(9)
 
-        # Layout 3x3
-        # Row 1
         r1c1, r1c2, r1c3 = st.columns(3)
         with r1c1:
             fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
@@ -1151,7 +1213,6 @@ with tab_evo:
             fig_high_xt_evo = draw_comparison_bar("High Impact Passes", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
             st.plotly_chart(fig_high_xt_evo, use_container_width=True)
 
-        # Row 2
         r2c1, r2c2, r2c3 = st.columns(3)
         with r2c1:
             fig_prog_evo = draw_comparison_bar("Progressive Passes", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
@@ -1163,7 +1224,6 @@ with tab_evo:
             fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes", first_9["dz_p90"].mean(), last_9["dz_p90"].mean())
             st.plotly_chart(fig_dz_evo, use_container_width=True)
 
-        # Row 3
         r3c1, r3c2, r3c3 = st.columns(3)
         with r3c1:
             fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%")
