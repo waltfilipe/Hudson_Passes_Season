@@ -768,13 +768,13 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         duels_p90_list = []
         duels_won_pct_list = []
         interceptions_p90_list = []
-        duels_won_p90_list = []       # NEW
-        int_xt_avg_list = []          # NEW
+        duels_won_p90_list = []
+        int_xt_avg_list = []
         for _, row in df_scores.iterrows():
             team = row['match'].split('(')[0].strip()
             bonus = 0
             dp = 0; dwp = 0; ip = 0
-            dwp90 = 0; int_xt_avg_rounded = 0   # NEW defaults
+            dwp90 = 0; int_xt_avg_rounded = 0
             for def_name, def_df in defensive_dfs_dict.items():
                 def_team = def_name.split('(')[0].strip()
                 if def_team == team:
@@ -785,7 +785,7 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
                     total_duels = duels_won + duels_lost
                     dwp = (duels_won / total_duels * 100.0) if total_duels > 0 else 0
                     dp = round(total_duels * p90, 1)
-                    dwp90 = round(duels_won * p90, 1)       # NEW
+                    dwp90 = round(duels_won * p90, 1)
                     interceptions = int(def_df["is_interception"].sum())
                     ip = round(interceptions * p90, 1)
                     int_df = def_df[def_df["is_interception"]]
@@ -794,7 +794,7 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
                         int_xt_avg = float(np.mean(int_xt_vals)) if int_xt_vals else 0
                     else:
                         int_xt_avg = 0
-                    int_xt_avg_rounded = round(int_xt_avg, 3)  # NEW
+                    int_xt_avg_rounded = round(int_xt_avg, 3)
                     duel_bonus_val = (dwp / 100.0) * min(dp / 20.0, 1.0) * 5
                     int_bonus_val = min(ip / 10.0, 1.0) * (0.5 + int_xt_avg * 2) * 3
                     bonus = duel_bonus_val + int_bonus_val
@@ -803,41 +803,36 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
             duels_p90_list.append(dp)
             duels_won_pct_list.append(round(dwp, 1))
             interceptions_p90_list.append(ip)
-            duels_won_p90_list.append(dwp90)                  # NEW
-            int_xt_avg_list.append(int_xt_avg_rounded)         # NEW
+            duels_won_p90_list.append(dwp90)
+            int_xt_avg_list.append(int_xt_avg_rounded)
         df_scores['def_bonus'] = def_bonus_list
         df_scores['duels_p90'] = duels_p90_list
         df_scores['duels_won_pct'] = duels_won_pct_list
         df_scores['interceptions_p90'] = interceptions_p90_list
-        df_scores['duels_won_p90'] = duels_won_p90_list       # NEW
-        df_scores['int_xt_avg'] = int_xt_avg_list              # NEW
+        df_scores['duels_won_p90'] = duels_won_p90_list
+        df_scores['int_xt_avg'] = int_xt_avg_list
     else:
         df_scores['def_bonus'] = 0.0
         df_scores['duels_p90'] = 0.0
         df_scores['duels_won_pct'] = 0.0
         df_scores['interceptions_p90'] = 0.0
-        df_scores['duels_won_p90'] = 0.0                       # NEW
-        df_scores['int_xt_avg'] = 0.0                          # NEW
+        df_scores['duels_won_p90'] = 0.0
+        df_scores['int_xt_avg'] = 0.0
 
     # Save pass-only grade
     df_scores['pass_grade'] = df_scores['Grade'].round(1).copy()
 
-    # ── NOVA NOTA DEFENSIVA ──────────────────────────────────────────
-    # Helper: escala uma série de [lo, hi] para [40, 100]
     def _norm_def(s, lo, hi):
         clipped = s.clip(lower=lo, upper=hi)
         if hi <= lo:
             return pd.Series([70.0] * len(s))
         return 40 + ((clipped - lo) / (hi - lo)) * 60
 
-    # Normaliza cada componente defensiva para escala 40-100
     df_scores['duels_won_pct_norm'] = _norm_def(df_scores['duels_won_pct'], 0, 100)
     df_scores['int_xt_norm'] = _norm_def(df_scores['int_xt_avg'], 0, 0.30)
     df_scores['duels_won_p90_norm'] = _norm_def(df_scores['duels_won_p90'], 0, 15)
     df_scores['interceptions_p90_norm'] = _norm_def(df_scores['interceptions_p90'], 0, 15)
 
-    # Defensive Grade = 35% % duelos vencidos + 25% xT interceptações
-    #                  + 20% duelos vencidos (count) + 20% interceptações (count)
     df_scores['def_grade'] = (
         df_scores['duels_won_pct_norm'] * 0.35 +
         df_scores['int_xt_norm'] * 0.25 +
@@ -910,7 +905,6 @@ def compute_defensive_evolution_df(dfs_dict, df_scores=None):
             int_xt_avg = float(np.mean(int_xt_vals)) if int_xt_vals else 0
         else:
             int_xt_avg = 0
-        # Look up grade from df_scores if available (match by team name)
         grade = None
         if df_scores is not None and 'Grade' in df_scores.columns and 'match' in df_scores.columns:
             team = m_name.split('(')[0].strip()
@@ -1140,31 +1134,55 @@ def draw_defensive_map(df):
     return _save_fig(fig), fig
 
 def draw_defensive_heatmap(df):
+    """Heatmap dividido por corredores (esquerdo, central, direito).
+    Cada célula mostra: número total de ações (duelos + interceptações)
+    e % de vitória (duelos vencidos / total de duelos)."""
     x_bins = np.linspace(0.0, FIELD_X, 7)
-    y_bins = np.linspace(0.0, FIELD_Y, 5)
-    counts = np.zeros((len(y_bins) - 1, len(x_bins) - 1), dtype=int)
-    for _, row in df.iterrows():
-        ix = int(np.clip(np.searchsorted(x_bins, row["x"], side="right") - 1, 0, len(x_bins) - 2))
-        iy = int(np.clip(np.searchsorted(y_bins, row["y"], side="right") - 1, 0, len(y_bins) - 2))
-        counts[iy, ix] += 1
-    all_vals = counts.flatten()
-    vmax = max(1, int(all_vals.max()))
-    cmap_def = LinearSegmentedColormap.from_list("def", ["#ffffff", "#dbeafe", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e3a5f"])
+    corridors = {
+        "Left": (LANE_LEFT_MIN, FIELD_Y),
+        "Center": (LANE_RIGHT_MAX, LANE_LEFT_MIN),
+        "Right": (0.0, LANE_RIGHT_MAX),
+    }
+    cells = {}
+    for cname, (y0, y1) in corridors.items():
+        for i in range(6):
+            x0_, x1_ = x_bins[i], x_bins[i + 1]
+            mask = (df["x"] >= x0_) & (df["x"] < x1_) & (df["y"] >= y0) & (df["y"] < y1)
+            cell_df = df[mask]
+            total = len(cell_df)
+            duels_total = int(cell_df["is_duel"].sum())
+            duels_won = int(cell_df["is_duel_won"].sum())
+            cells[(cname, i)] = {"count": total, "duels_won": duels_won, "duels_total": duels_total}
+    all_counts = [v["count"] for v in cells.values()]
+    vmax = max(1, max(all_counts))
+    cmap_def = LinearSegmentedColormap.from_list("def_corr", ["#ffffff", "#dbeafe", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e3a5f"])
     norm = Normalize(vmin=0, vmax=vmax)
     threshold = max(1, vmax * 0.35)
     fig, ax, pitch = _base_pitch()
-    for iy in range(len(y_bins) - 1):
-        for ix in range(len(x_bins) - 1):
-            value = counts[iy, ix]
-            x0_, x1_ = x_bins[ix], x_bins[ix + 1]
-            y0_, y1_ = y_bins[iy], y_bins[iy + 1]
-            ax.add_patch(Rectangle((x0_, y0_), x1_ - x0_, y1_ - y0_,
+    for cname, (y0, y1) in corridors.items():
+        for i in range(6):
+            x0_, x1_ = x_bins[i], x_bins[i + 1]
+            d = cells[(cname, i)]
+            value = d["count"]
+            ax.add_patch(Rectangle((x0_, y0), x1_ - x0_, y1 - y0,
                                    facecolor=cmap_def(norm(value)),
-                                   edgecolor=(1, 1, 1, 0.10), lw=0.5, alpha=0.95, zorder=2))
-            ax.text((x0_ + x1_) / 2, (y0_ + y1_) / 2, str(value),
+                                   edgecolor=(1, 1, 1, 0.12), lw=0.5, alpha=0.95, zorder=2))
+            duel_pct = (d["duels_won"] / d["duels_total"] * 100) if d["duels_total"] > 0 else None
+            if duel_pct is not None:
+                label = f"{value}\n{d['duels_won']}/{d['duels_total']} ({duel_pct:.0f}%)"
+            else:
+                label = str(value)
+            ax.text((x0_ + x1_) / 2, (y0 + y1) / 2, label,
                     ha="center", va="center",
                     color="#000000" if value <= threshold else "#ffffff",
-                    fontsize=9, fontweight="700" if value >= vmax * 0.5 else "600", zorder=4)
+                    fontsize=7, fontweight="600", zorder=4)
+    # Linhas divisórias dos corredores
+    ax.axhline(y=LANE_LEFT_MIN, color="#ffffff", lw=0.5, alpha=0.20, linestyle="--", zorder=3)
+    ax.axhline(y=LANE_RIGHT_MAX, color="#ffffff", lw=0.5, alpha=0.20, linestyle="--", zorder=3)
+    # Rótulos dos corredores no lado esquerdo
+    for cname, (y0, y1) in corridors.items():
+        ax.text(-0.5, (y0 + y1) / 2, cname, ha="right", va="center",
+                color="#ffffff", fontsize=7, fontweight="500", alpha=0.7, zorder=5)
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
@@ -1675,7 +1693,7 @@ with tab_dash:
         with col_dm1:
             row_label("Defensive Actions Map", "row-label-blue"); st.image(img_def_map, use_container_width=True)
         with col_dm2:
-            row_label("Defensive Heatmap", "row-label-green"); st.image(img_def_hm, use_container_width=True)
+            row_label("Defensive Corridor Heatmap", "row-label-green"); st.image(img_def_hm, use_container_width=True)
         with col_dm3:
             row_label("xT Threat Map", "row-label-amber"); st.image(img_def_xt, use_container_width=True)
 
