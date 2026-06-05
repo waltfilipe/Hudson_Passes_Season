@@ -110,44 +110,69 @@ D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 
 #
-# MATCH ORDER (18 games, chronological)
+# MATCH NAME MAPPING: old keys → final team names
 #
+OLD_TO_NEW_MATCH_NAMES = {
+    "Game 1": "Michigan Wolves",
+    "Game 2": "Philadelphia Union",
+    "Game 3": "Columbus Crew",
+    "Game 4": "Minnesota United (03-13)",
+    "Game 5": "Vardar Soccer",
+    "Game 6": "Colorado Rapids",
+    "Connecticut United (03-27)": "Connecticut United (03-27)",
+    "Nashville SC (03-28)": "Nashville SC (03-28)",
+    "Seongnam FC (03-29)": "Seongnam FC (03-29)",
+    "NY Red Bulls (03-31)": "NY Red Bulls (03-31)",
+    "Game 7": "Minnesota United (04-10)",
+    "Game 8": "Sporting Kansas City",
+    "Game 9": "Cedar Stars",
+    "Game 10": "South Florida",
+    "Game 11": "Real Salt Lake",
+    "Game 12": "Real Futbal",
+    "Game 13": "San Jose",
+    "Game 14": "Houston Dynamo",
+}
+NEW_TO_OLD_MATCH_NAMES = {v: k for k, v in OLD_TO_NEW_MATCH_NAMES.items()}
+
 MATCH_ORDER = [
-    "Game 1", "Game 2", "Game 3", "Game 4", "Game 5",
-    "Connecticut United (03-27)", "Nashville SC (03-28)", "Seongnam FC (03-29)", "NY Red Bulls (03-31)",
-    "Game 6", "Game 7", "Game 8", "Game 9", "Game 10", "Game 11", "Game 12", "Game 13", "Game 14"
+    "Michigan Wolves", "Philadelphia Union", "Columbus Crew",
+    "Minnesota United (03-13)", "Vardar Soccer", "Colorado Rapids",
+    "Connecticut United (03-27)", "Nashville SC (03-28)", "Seongnam FC (03-29)",
+    "NY Red Bulls (03-31)", "Minnesota United (04-10)", "Sporting Kansas City",
+    "Cedar Stars", "South Florida", "Real Salt Lake", "Real Futbal",
+    "San Jose", "Houston Dynamo",
 ]
 
 #
-# DEFENSIVE DATA — CORRECTLY MAPPED per user's last message
+# DEFENSIVE DATA — keys use original old names that get mapped via OLD_TO_NEW
 #
 DEFENSIVE_DATA = {
-    "Game 1": {  # Michigan Wolves
+    "Game 1": {
         "duels_won": [(53.85, 25.21), (23.59, 29.69), (43.88, 50.31), (16.28, 50.47), (15.62, 72.08)],
         "duels_lost": [(73.63, 27.70), (17.78, 75.41)],
         "interceptions": [(65.82, 19.05), (72.80, 57.62)]
     },
-    "Game 2": {  # Philadelphia Union
+    "Game 2": {
         "duels_won": [(67.98, 34.68), (41.05, 23.54), (21.27, 31.36), (39.55, 60.95)],
         "duels_lost": [(29.08, 40.50)],
         "interceptions": [(53.52, 19.05), (28.08, 27.03), (29.75, 53.63), (30.58, 69.42), (52.19, 58.12), (59.17, 63.11), (80.78, 68.92)]
     },
-    "Game 3": {  # Columbus Crew
+    "Game 3": {
         "duels_won": [(22.76, 29.69), (48.36, 20.72)],
         "duels_lost": [(63.32, 56.96), (25.42, 53.63), (27.42, 34.35), (35.06, 36.84)],
         "interceptions": [(29.75, 35.84), (29.41, 40.00), (37.39, 60.95)]
     },
-    "Game 4": {  # Minnesota United (03-13)
+    "Game 4": {
         "duels_won": [(44.04, 58.95), (14.78, 18.56), (17.61, 12.24)],
         "duels_lost": [(77.29, 27.20), (39.89, 3.43), (33.24, 10.91), (35.90, 57.12), (0.99, 69.26)],
         "interceptions": [(31.74, 38.50), (35.06, 36.34), (38.39, 41.00), (46.54, 26.37), (40.38, 19.22)]
     },
-    "Game 5": {  # Vardar Soccer — no duels, only interceptações
+    "Game 5": {
         "duels_won": [],
         "duels_lost": [],
         "interceptions": [(72.63, 35.18), (12.29, 44.99)]
     },
-    "Game 6": {  # Colorado Rapids
+    "Game 6": {
         "duels_won": [(36.39, 73.75), (39.39, 68.76), (52.02, 66.10), (21.60, 53.63), (35.06, 43.32), (36.39, 31.36), (45.54, 25.04), (34.40, 21.71), (53.68, 17.23), (57.67, 22.55)],
         "duels_lost": [(78.95, 4.59), (75.46, 65.43), (33.07, 54.46)],
         "interceptions": [(67.31, 9.58), (39.89, 24.54), (43.38, 28.86), (27.92, 35.01), (64.49, 53.80), (36.56, 55.96), (30.58, 62.11)]
@@ -172,42 +197,42 @@ DEFENSIVE_DATA = {
         "duels_lost": [(66.32, 60.28)],
         "interceptions": [(34.90, 34.02), (56.34, 42.66), (68.15, 54.30)]
     },
-    "Game 7": {  # Minnesota United (04-10)
+    "Game 7": {
         "duels_won": [(15.62, 54.30)],
         "duels_lost": [(36.39, 39.34), (10.79, 64.27)],
         "interceptions": [(66.15, 68.59), (25.42, 54.79), (35.06, 48.15), (22.76, 21.88), (56.84, 25.87), (82.11, 20.72)]
     },
-    "Game 8": {  # Sporting Kansas City
+    "Game 8": {
         "duels_won": [(85.43, 17.06), (76.12, 20.72), (54.68, 12.07), (53.18, 24.87), (24.92, 34.35), (31.24, 49.64), (39.05, 52.14), (43.71, 62.61), (49.69, 73.25), (75.79, 62.77)],
         "duels_lost": [(30.24, 69.09)],
         "interceptions": [(60.83, 15.40), (10.79, 25.87), (52.35, 52.97), (70.14, 61.28), (54.85, 62.11), (39.89, 66.60)]
     },
-    "Game 9": {  # Cedar Stars
+    "Game 9": {
         "duels_won": [(9.30, 22.88), (59.00, 15.06), (60.83, 44.65)],
         "duels_lost": [],
         "interceptions": [(75.46, 28.20), (79.95, 57.29), (27.09, 66.43)]
     },
-    "Game 10": {  # South Florida
+    "Game 10": {
         "duels_won": [(36.23, 32.85), (42.05, 54.79), (35.56, 57.62), (70.97, 18.72)],
         "duels_lost": [],
         "interceptions": [(55.18, 63.77), (22.26, 62.94)]
     },
-    "Game 11": {  # Real Salt Lake
+    "Game 11": {
         "duels_won": [(47.70, 56.96), (26.75, 55.29), (21.93, 26.37), (68.15, 2.93)],
         "duels_lost": [(76.29, 32.02)],
         "interceptions": [(15.78, 53.30), (35.23, 24.54), (76.79, 21.55)]
     },
-    "Game 12": {  # Real Futbal
+    "Game 12": {
         "duels_won": [(72.63, 10.24), (73.80, 13.90), (54.68, 40.50)],
         "duels_lost": [(69.97, 22.55), (30.24, 5.26), (39.22, 71.75)],
         "interceptions": [(75.46, 56.12)]
     },
-    "Game 13": {  # San Jose
+    "Game 13": {
         "duels_won": [(8.97, 23.21), (23.76, 23.71), (24.09, 41.50), (30.91, 61.61), (65.15, 39.17), (69.31, 29.36)],
         "duels_lost": [(27.42, 52.97), (30.74, 49.48), (34.73, 52.80), (43.38, 59.62), (34.90, 63.77), (31.08, 62.61), (21.27, 66.93), (70.47, 57.79)],
         "interceptions": [(76.62, 21.38), (80.78, 60.61), (21.93, 57.45), (25.59, 70.59), (34.90, 31.52), (38.39, 33.68), (29.91, 23.38)]
     },
-    "Game 14": {  # Houston Dynamo
+    "Game 14": {
         "duels_won": [(68.31, 37.84), (68.15, 42.33), (83.27, 73.75), (55.51, 62.77), (49.53, 75.91), (31.24, 70.92), (24.59, 55.29)],
         "duels_lost": [(21.60, 21.88), (26.59, 60.45)],
         "interceptions": []
@@ -215,7 +240,7 @@ DEFENSIVE_DATA = {
 }
 
 #
-# BASE PASSES
+# BASE PASSES DATA — keys will be remapped to new names
 #
 BASE_MATCHES_DATA = {
     "Connecticut United (03-27)": [
@@ -355,10 +380,10 @@ def apply_date_mapping(name: str) -> str:
         "Nashville SC": "Nashville SC (03-28)",
         "Seongnam FC": "Seongnam FC (03-29)",
         "NY Red Bulls": "NY Red Bulls (03-31)",
-        "Real Salt Lake": "Real Salt Lake (04-26)",
-        "Real Futbol": "Real Futbal (05-23)",
-        "San Jose": "San Jose (05-24)",
-        "Houston Dynamo": "Houston Dynamo (05-26)"
+        "Real Salt Lake": "Real Salt Lake",
+        "Real Futbol": "Real Futbal",
+        "San Jose": "San Jose",
+        "Houston Dynamo": "Houston Dynamo"
     }
     for k, v in mapping.items():
         if k.lower() == name.lower().strip():
@@ -531,6 +556,7 @@ try:
 except Exception:
     pass
 
+# Build combined data from docx + base
 combined_matches_data = {}
 for k, v in docx_matches_data.items():
     mapped_k = apply_date_mapping(k)
@@ -539,48 +565,69 @@ for k, v in docx_matches_data.items():
 for k, v in BASE_MATCHES_DATA.items():
     combined_matches_data[k] = v
 
+# Remap combined_matches_data keys to final team names
+combined_remapped = {}
+for old_key, events in combined_matches_data.items():
+    new_key = OLD_TO_NEW_MATCH_NAMES.get(old_key, old_key)
+    if new_key not in combined_remapped or len(events) > len(combined_remapped.get(new_key, [])):
+        combined_remapped[new_key] = events
+combined_matches_data = combined_remapped
+
 #
-# BUILD PASS DATAFRAMES
+# BUILD PASS DATAFRAMES (ordered by MATCH_ORDER)
 #
 dfs_by_match = {}
-for match_name, events in combined_matches_data.items():
-    dfm = pd.DataFrame(events, columns=["type", "x_start", "y_start", "x_end", "y_end", "video"])
-    dfm["match"] = match_name
-    dfm["number"] = np.arange(1, len(dfm) + 1)
-    dfm["is_won"] = dfm["type"].str.contains("WON", case=False)
-    dfm["progressive"] = dfm.apply(
-        lambda r: r["is_won"] and is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
-    )
-    dfm["direction"] = dfm.apply(
-        lambda r: classify_pass_direction(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
-    )
-    dfm["is_forward"] = dfm["direction"] == "forward"
-    dfm["is_backward"] = dfm["direction"] == "backward"
-    dfm["is_lateral"] = dfm["direction"].isin(["lateral_left", "lateral_right"])
-    dfm["pass_distance"] = np.sqrt((dfm["x_end"] - dfm["x_start"])**2 + (dfm["y_end"] - dfm["y_start"])**2)
-    dfm["xt_start"] = dfm.apply(lambda r: xt_value(r["x_start"], r["y_start"]), axis=1)
-    dfm["xt_end"] = dfm.apply(lambda r: xt_value(r["x_end"], r["y_end"]), axis=1)
-    dfm["delta_xt"] = np.where(dfm["is_won"], dfm["xt_end"] - dfm["xt_start"], 0.0)
-    dfm["dist_bonus"] = distance_bonus(dfm["pass_distance"].values)
-    dfm["delta_xt_adj"] = np.where(dfm["is_won"], dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
+for match_name in MATCH_ORDER:
+    if match_name in combined_matches_data:
+        events = combined_matches_data[match_name]
+        dfm = pd.DataFrame(events, columns=["type", "x_start", "y_start", "x_end", "y_end", "video"])
+        dfm["match"] = match_name
+        dfm["number"] = np.arange(1, len(dfm) + 1)
+        dfm["is_won"] = dfm["type"].str.contains("WON", case=False)
+        dfm["progressive"] = dfm.apply(
+            lambda r: r["is_won"] and is_progressive_pass(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
+        )
+        dfm["direction"] = dfm.apply(
+            lambda r: classify_pass_direction(r["x_start"], r["y_start"], r["x_end"], r["y_end"]), axis=1
+        )
+        dfm["is_forward"] = dfm["direction"] == "forward"
+        dfm["is_backward"] = dfm["direction"] == "backward"
+        dfm["is_lateral"] = dfm["direction"].isin(["lateral_left", "lateral_right"])
+        dfm["pass_distance"] = np.sqrt((dfm["x_end"] - dfm["x_start"])**2 + (dfm["y_end"] - dfm["y_start"])**2)
+        dfm["xt_start"] = dfm.apply(lambda r: xt_value(r["x_start"], r["y_start"]), axis=1)
+        dfm["xt_end"] = dfm.apply(lambda r: xt_value(r["x_end"], r["y_end"]), axis=1)
+        dfm["delta_xt"] = np.where(dfm["is_won"], dfm["xt_end"] - dfm["xt_start"], 0.0)
+        dfm["dist_bonus"] = distance_bonus(dfm["pass_distance"].values)
+        dfm["delta_xt_adj"] = np.where(dfm["is_won"], dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
+    else:
+        # Empty dataframe for matches without pass data
+        dfm = pd.DataFrame(columns=["type", "x_start", "y_start", "x_end", "y_end", "video",
+                                      "match", "number", "is_won", "progressive", "direction",
+                                      "is_forward", "is_backward", "is_lateral", "pass_distance",
+                                      "xt_start", "xt_end", "delta_xt", "dist_bonus", "delta_xt_adj"])
+        dfm["match"] = [match_name]
+        dfm["number"] = [0]
+        dfm["is_won"] = [False]
+        dfm["progressive"] = [False]
+        dfm["direction"] = [""]
+        dfm["is_forward"] = [False]
+        dfm["is_backward"] = [False]
+        dfm["is_lateral"] = [False]
+        dfm["pass_distance"] = [0.0]
+        dfm["xt_start"] = [0.0]
+        dfm["xt_end"] = [0.0]
+        dfm["delta_xt"] = [0.0]
+        dfm["dist_bonus"] = [0.0]
+        dfm["delta_xt_adj"] = [0.0]
     dfs_by_match[match_name] = dfm
 
-# Reorder pass data to match MATCH_ORDER
-reordered_dfs = {}
-for m_name in MATCH_ORDER:
-    if m_name in dfs_by_match:
-        reordered_dfs[m_name] = dfs_by_match[m_name]
-for m_name in dfs_by_match:
-    if m_name not in reordered_dfs:
-        reordered_dfs[m_name] = dfs_by_match[m_name]
-dfs_by_match = reordered_dfs
-
 #
-# BUILD DEFENSIVE DATAFRAMES
+# BUILD DEFENSIVE DATAFRAMES (ordered by MATCH_ORDER)
 #
 defensive_dfs_by_match = {}
 for match_name in MATCH_ORDER:
-    def_data = DEFENSIVE_DATA.get(match_name, {"duels_won": [], "duels_lost": [], "interceptions": []})
+    old_key = NEW_TO_OLD_MATCH_NAMES.get(match_name, match_name)
+    def_data = DEFENSIVE_DATA.get(old_key, {"duels_won": [], "duels_lost": [], "interceptions": []})
     def_dict = {}
     for key in ["duels_won", "duels_lost", "interceptions"]:
         coords = def_data.get(key, [])
@@ -593,13 +640,13 @@ for match_name in MATCH_ORDER:
 # Compute defensive stats for each match
 all_def_stats = []
 for m_name in MATCH_ORDER:
-    def_dict = defensive_dfs_by_match.get(m_name, {})
+    def_dict = defensive_dfs_by_match[m_name]
     ds = compute_defensive_stats(def_dict, m_name)
     all_def_stats.append(ds)
 
 s_def_avg = compute_defensive_stats_avg(all_def_stats)
 
-df_all = pd.concat(dfs_by_match.values(), ignore_index=True) if dfs_by_match else pd.DataFrame()
+df_all = pd.concat([dfs_by_match[m] for m in MATCH_ORDER if len(dfs_by_match[m]) > 0], ignore_index=True) if dfs_by_match else pd.DataFrame()
 
 #
 # STATS & SCORES
@@ -1095,8 +1142,8 @@ if os.path.exists(img_path):
 
 st.sidebar.markdown("---")
 
-num_matches = len(dfs_by_match)
-all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match if m in dfs_by_match]
+num_matches = len(MATCH_ORDER)
+all_match_stats = [compute_stats(dfs_by_match[m], m) for m in MATCH_ORDER]
 
 #
 # TABS
@@ -1141,7 +1188,7 @@ with tab_graf:
             summary_box("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
             summary_box("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
 
-        st.markdown(f"<p style='text-align:center;color:#64748b;font-size:12px;'>{num_matches} matches with pass data</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:center;color:#64748b;font-size:12px;'>{num_matches} matches collected</p>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
