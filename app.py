@@ -45,6 +45,7 @@ COLOR_PROGRESSIVE = "#2F80ED"
 COLOR_FAIL = "#E07070"
 ALPHA_SUCCESS = 0.07
 C_BLUE = "#2F80ED"
+C_BLUE_DARK = "#1a56db"
 C_GREEN = "#10b981"
 C_AMBER = "#f59e0b"
 C_PURPLE_LIGHT = "#a78bfa"
@@ -56,6 +57,13 @@ NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
+
+def _hex_to_rgba(hex_color, alpha=1.0):
+    if hex_color.startswith('#'):
+        h = hex_color.lstrip('#')
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return f'rgba({r},{g},{b},{alpha})'
+    return hex_color
 
 def get_lane(y):
     if y >= LANE_LEFT_MIN:
@@ -944,28 +952,28 @@ def _arrow_html(val_game: float, val_avg: float) -> str:
         return f'<span style="color:#E07070">↓ {pct:.0f}%</span>'
 
 def section_card(title, border_color, items):
-    """Styled card with colored title bar and stat items.
-    items: list of (label, value) or (label, value, sub_value)"""
-    html = f'<div style="background:#1e1e32;border:1px solid {border_color};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
-    html += f'<div style="background:{border_color};padding:8px 14px;font-size:14px;font-weight:600;color:#fff;">{title}</div>'
+    bg = _hex_to_rgba(border_color, 0.85)
+    bd = _hex_to_rgba(border_color, 0.5)
+    html = f'<div style="background:#1e1e32;border:1px solid {bd};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
+    html += f'<div style="background:{bg};padding:10px 16px;font-size:15px;font-weight:600;color:#fff;">{title}</div>'
     for item in items:
         label = item[0]
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
-        html += f'<div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);">'
-        html += f'<div style="color:#c8c8d0;font-size:12px;">{label}</div>'
-        html += f'<div style="color:#ffffff;font-size:18px;font-weight:600;">{value}</div>'
+        html += f'<div style="padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.04);">'
+        html += f'<div style="color:#c8c8d0;font-size:13px;">{label}</div>'
+        html += f'<div style="color:#ffffff;font-size:20px;font-weight:600;">{value}</div>'
         if sub:
-            html += f'<div style="color:#7a7a90;font-size:11px;margin-top:1px;">{sub}</div>'
+            html += f'<div style="color:#7a7a90;font-size:12px;margin-top:2px;">{sub}</div>'
         html += '</div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 def cmp_section_card(title, border_color, items):
-    """Styled card matching section_card format, with comparison arrows.
-    items: list of (label, game_val, avg_val) or (label, game_val, avg_val, disp_game, disp_avg)"""
-    html = f'<div style="background:#1e1e32;border:1px solid {border_color};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
-    html += f'<div style="background:{border_color};padding:8px 14px;font-size:14px;font-weight:600;color:#fff;">{title}</div>'
+    bg = _hex_to_rgba(border_color, 0.85)
+    bd = _hex_to_rgba(border_color, 0.5)
+    html = f'<div style="background:#1e1e32;border:1px solid {bd};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
+    html += f'<div style="background:{bg};padding:10px 16px;font-size:15px;font-weight:600;color:#fff;">{title}</div>'
     for item in items:
         label = item[0]
         val_game = item[1]
@@ -973,26 +981,15 @@ def cmp_section_card(title, border_color, items):
         disp_game = item[3] if len(item) > 3 else str(val_game)
         disp_avg = item[4] if len(item) > 4 else str(val_avg)
         arrow = _arrow_html(float(val_game), float(val_avg))
-        html += f'<div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);">'
-        html += f'<div style="color:#c8c8d0;font-size:12px;">{label}</div>'
+        html += f'<div style="padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.04);">'
+        html += f'<div style="color:#c8c8d0;font-size:13px;">{label}</div>'
         html += f'<div style="display:flex;align-items:baseline;gap:6px;">'
-        html += f'<span style="color:#ffffff;font-size:18px;font-weight:600;">{disp_game}</span>'
+        html += f'<span style="color:#ffffff;font-size:20px;font-weight:600;">{disp_game}</span>'
         html += f'<span style="font-size:13px;font-weight:500;">{arrow}</span>'
         html += f'</div>'
-        html += f'<div style="color:#7a7a90;font-size:11px;margin-top:1px;">AVG: {disp_avg}</div>'
+        html += f'<div style="color:#7a7a90;font-size:12px;margin-top:2px;">AVG: {disp_avg}</div>'
         html += '</div>'
     html += '</div>'
-    st.markdown(html, unsafe_allow_html=True)
-
-def summary_box(label, value, sub_value="", border="#3b82f6"):
-    sub_html = f'<div style="color:#6b6b80;font-size:11px;margin-top:2px;">{sub_value}</div>' if sub_value else ""
-    html = (
-        f'<div style="background:#1e1e32;border:1px solid {border};border-radius:10px;padding:12px 16px;margin-bottom:10px;">'
-        f'<div style="color:#c8c8d0;font-size:12px;margin-bottom:4px;">{label}</div>'
-        f'<div style="color:#ffffff;font-size:20px;font-weight:600;">{value}</div>'
-        f'{sub_html}'
-        f'</div>'
-    )
     st.markdown(html, unsafe_allow_html=True)
 
 # DRAW HELPERS (PITCH)
@@ -1281,9 +1278,9 @@ def draw_grade_chart(df_scores):
         x=x_labels, y=y_grade,
         customdata=customdata,
         mode='lines+markers',
-        line=dict(color="#2F80ED", width=3, shape='spline'),
-        marker=dict(size=8, color="#2F80ED"),
-        fill='tozeroy', fillcolor='rgba(47, 128, 237, 0.05)',
+        line=dict(color=C_BLUE_DARK, width=3, shape='spline'),
+        marker=dict(size=8, color=C_BLUE_DARK),
+        fill='tozeroy', fillcolor=f'rgba(26, 86, 219, 0.05)',
         name="Combined Grade",
         hovertemplate="%{customdata[0]}<br>Grade: %{y:.1f}<br>%{customdata[1]}"
     ))
@@ -1525,17 +1522,17 @@ with tab_graf:
         st.markdown("### Passes")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            section_card("Overview", C_BLUE_PASTEL, [
+            section_card("📋 Overview", C_BLUE_PASTEL, [
                 ("Passes p90", f"{avg_total_p90:.1f}", f"Total: {total_passes_all}"),
                 ("Successful %", f"{avg_acc:.1f}%", f"Total: {total_succ_all}"),
             ])
         with col_s2:
-            section_card("Advanced", C_GREEN_PASTEL, [
+            section_card("📊 Advanced", C_GREEN_PASTEL, [
                 ("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}"),
                 ("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}"),
             ])
         with col_s3:
-            section_card("Impact", C_AMBER_PASTEL, [
+            section_card("⚡ Impact", C_AMBER_PASTEL, [
                 ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}"),
                 ("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}"),
             ])
@@ -1561,19 +1558,19 @@ with tab_graf:
         st.markdown("### Defensive Actions")
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
-            section_card("General", C_BLUE_PASTEL, [
+            section_card("🛡️ General", C_BLUE_PASTEL, [
                 ("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}"),
-                ("Def. Actions in Attack p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}"),
+                ("Actions in Opp. Field p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}"),
             ])
         with col_d2:
-            section_card("Duels", C_GREEN_PASTEL, [
+            section_card("⚔️ Duels", C_GREEN_PASTEL, [
                 ("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}"),
                 ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
             ])
         with col_d3:
-            section_card("Interceptions", C_AMBER_PASTEL, [
+            section_card("👁️ Interceptions", C_AMBER_PASTEL, [
                 ("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}"),
-                ("Interceptions in Attack p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
+                ("Interceptions in Opp Field p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
             ])
 
         st.markdown(f'<div style="text-align:right;color:#6b6b80;font-size:12px;margin-top:8px;">{num_matches} matches collected</div>', unsafe_allow_html=True)
@@ -1670,27 +1667,30 @@ with tab_dash:
 
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
+            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Pass Map</div>', unsafe_allow_html=True)
             st.image(img_pm_game, use_container_width=True)
         with col_m2:
+            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Zone Heatmap</div>', unsafe_allow_html=True)
             st.image(img_ht_game, use_container_width=True)
         with col_m3:
+            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Top 5 Pass Impact</div>', unsafe_allow_html=True)
             st.image(img_xt_game, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            cmp_section_card("Pass Overview", C_BLUE_PASTEL, [
+            cmp_section_card("📋 Pass Overview", C_BLUE_PASTEL, [
                 ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}"),
                 ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
                  f"{s_game['accuracy_pct']:.1f}%", f"{s_avg['accuracy_pct']:.1f}%"),
             ])
         with col_s2:
-            cmp_section_card("Advanced", C_GREEN_PASTEL, [
+            cmp_section_card("📊 Advanced", C_GREEN_PASTEL, [
                 ("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}"),
                 ("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}"),
             ])
         with col_s3:
-            cmp_section_card("Impact", C_AMBER_PASTEL, [
+            cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
                 ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
                  f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%"),
                 ("Σ Pass Impact", s_game["xt_p90"], s_avg["xt_p90"],
@@ -1721,29 +1721,32 @@ with tab_dash:
 
         col_dm1, col_dm2, col_dm3 = st.columns(3)
         with col_dm1:
+            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Defensive Actions Map</div>', unsafe_allow_html=True)
             st.image(img_def_map, use_container_width=True)
         with col_dm2:
+            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Defensive Corridor Heatmap</div>', unsafe_allow_html=True)
             st.image(img_def_hm, use_container_width=True)
         with col_dm3:
+            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">xT Threat Map</div>', unsafe_allow_html=True)
             st.image(img_def_xt, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_ds1, col_ds2, col_ds3 = st.columns(3)
         with col_ds1:
-            cmp_section_card("General", C_BLUE_PASTEL, [
+            cmp_section_card("🛡️ General", C_BLUE_PASTEL, [
                 ("Defensive Actions p90", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}"),
-                ("Def. Actions in Attack p90", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
+                ("Actions in Opp. Field p90", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
             ])
         with col_ds2:
-            cmp_section_card("Duels", C_GREEN_PASTEL, [
+            cmp_section_card("⚔️ Duels", C_GREEN_PASTEL, [
                 ("Defensive Duels p90", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}"),
                 ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
                  f"{d_game['duels_won_pct']:.1f}%", f"{d_avg['duels_won_pct']:.1f}%"),
             ])
         with col_ds3:
-            cmp_section_card("Interceptions", C_AMBER_PASTEL, [
+            cmp_section_card("👁️ Interceptions", C_AMBER_PASTEL, [
                 ("Interceptions p90", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}"),
-                ("Interceptions in Attack p90", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
+                ("Interceptions in Opp Field p90", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
             ])
 
 with tab_evo:
