@@ -264,9 +264,12 @@ def distance_to_goal(x, y):
     return np.sqrt((GOAL_X - x) ** 2 + (GOAL_Y - y) ** 2)
 
 def get_lane(y):
-    if y >= LANE_LEFT_MIN: return "left"
-    elif y &lt; LANE_RIGHT_MAX: return "right"
-    return "center"
+    if y >= LANE_LEFT_MIN:
+        return "left"
+    elif y < LANE_RIGHT_MAX:
+        return "right"
+    else:
+        return "center"
 
 def is_progressive_pass(x_start, y_start, x_end, y_end) -> bool:
     if x_start &lt; 35: return False
