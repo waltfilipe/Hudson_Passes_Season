@@ -47,6 +47,7 @@ ALPHA_SUCCESS = 0.07
 C_BLUE = "#2F80ED"
 C_GREEN = "#10b981"
 C_AMBER = "#f59e0b"
+C_PURPLE_LIGHT = "#a78bfa"
 CMAP_TOP10 = LinearSegmentedColormap.from_list("top10", ["#fef08a", "#f97316", "#b91c1c"])
 NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 NX_XT, NY_XT = 16, 12
@@ -865,6 +866,7 @@ def compute_defensive_stats(df: pd.DataFrame, match_name: str) -> dict:
         "total_duels": total_duels,
         "duels_p90": round(total_duels * p90_factor, 1),
         "duels_won_pct": round(duels_won_pct, 1),
+        "duels_won": duels_won,
         "interceptions": interceptions,
         "interceptions_p90": round(interceptions * p90_factor, 1),
         "interceptions_attacking": interceptions_attacking,
@@ -937,10 +939,28 @@ def _arrow_html(val_game: float, val_avg: float) -> str:
         return ""
     if val_game > val_avg:
         pct = _safe_pct_diff(val_game, val_avg)
-        return f'↑ {pct:.0f}%'
+        return f'<span style="color:#10b981">↑ {pct:.0f}%</span>'
     else:
         pct = _safe_pct_diff(val_avg, val_game)
-        return f'↓ {pct:.0f}%'
+        return f'<span style="color:#E07070">↓ {pct:.0f}%</span>'
+
+def section_card(title_with_emoji, border_color, items):
+    """Styled card with colored title bar and stat items.
+    items: list of (label, value) or (label, value, sub_value)"""
+    html = f'<div style="background:#1e1e32;border:1px solid {border_color};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
+    html += f'<div style="background:{border_color};padding:8px 14px;font-size:14px;font-weight:600;color:#fff;">{title_with_emoji}</div>'
+    for item in items:
+        label = item[0]
+        value = item[1]
+        sub = item[2] if len(item) > 2 else ""
+        html += f'<div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);">'
+        html += f'<div style="color:#a0a0b5;font-size:11px;">{label}</div>'
+        html += f'<div style="color:#ffffff;font-size:18px;font-weight:600;">{value}</div>'
+        if sub:
+            html += f'<div style="color:#6b6b80;font-size:11px;margin-top:1px;">{sub}</div>'
+        html += '</div>'
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, border="#3b82f6"):
     disp_game = str(val_game) if disp_game is None else disp_game
@@ -951,7 +971,7 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, border="#3b
         f'<div style="color:#a0a0b5;font-size:12px;margin-bottom:4px;">{label}</div>'
         f'<div style="display:flex;align-items:baseline;gap:6px;">'
         f'<span style="color:#ffffff;font-size:20px;font-weight:600;">{disp_game}</span>'
-        f'<span style="color:{border};font-size:13px;font-weight:500;">{arrow}</span>'
+        f'<span style="font-size:13px;font-weight:500;">{arrow}</span>'
         f'</div>'
         f'<div style="color:#6b6b80;font-size:11px;margin-top:2px;">AVG: {disp_avg}</div>'
         f'</div>'
@@ -1110,11 +1130,11 @@ def draw_defensive_map(df):
     fig, ax, pitch = _base_pitch()
     for _, row in df.iterrows():
         if row["is_duel_won"]:
-            color, marker, s, alpha = COLOR_DUEL_WON, "o", 55, 0.85
+            color, marker, s, alpha = COLOR_DUEL_WON, "o", 90, 0.85
         elif row["is_duel_lost"]:
-            color, marker, s, alpha = COLOR_DUEL_LOST, "X", 65, 0.85
+            color, marker, s, alpha = COLOR_DUEL_LOST, "X", 100, 0.85
         else:
-            color, marker, s, alpha = COLOR_INTERCEPTION, "^", 50, 0.85
+            color, marker, s, alpha = COLOR_INTERCEPTION, "^", 80, 0.85
         pitch.scatter(row["x"], row["y"], s=s, marker=marker, color=color,
                       edgecolors="white", linewidths=0.8, ax=ax, zorder=6, alpha=alpha)
     leg = ax.legend(
@@ -1184,7 +1204,7 @@ def draw_defensive_xt_map(df):
         norm_def = Normalize(vmin=vmin, vmax=vmax_vals) if vmax_vals > vmin else Normalize(vmin=0, vmax=1)
         cmap_def_xt = LinearSegmentedColormap.from_list("def_xt", ["#2d1b69", "#4a148c", "#7b1fa2", "#ab47bc", "#ce93d8"])
         for i, (_, row) in enumerate(df.iterrows()):
-            marker, s = ("o", 55) if row["is_duel_won"] else ("X", 65) if row["is_duel_lost"] else ("^", 50)
+            marker, s = ("o", 85) if row["is_duel_won"] else ("X", 95) if row["is_duel_lost"] else ("^", 75)
             pitch.scatter(row["x"], row["y"], s=s, marker=marker,
                           color=cmap_def_xt(norm_def(vals[i])),
                           edgecolors="white", linewidths=0.6, ax=ax, zorder=6, alpha=0.85)
@@ -1192,6 +1212,7 @@ def draw_defensive_xt_map(df):
         cbar = fig.colorbar(sm, ax=ax, fraction=0.020, pad=0.02, shrink=0.60)
         cbar.set_label("xT Threat", color="#ffffff", fontsize=8)
         cbar.ax.yaxis.set_tick_params(color="#ffffff", labelsize=7)
+        plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="#ffffff")
     _attack_arrow(fig, has_cbar=True)
     return _save_fig(fig), fig
 
@@ -1231,6 +1252,7 @@ def draw_grade_chart(df_scores):
     x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
     y_grade = df_scores["Grade"]
     y_pass_grade = df_scores["pass_grade"]
+    y_def_grade = df_scores["def_grade"]
     mean_grade = y_grade.mean()
     metrics = {
         'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
@@ -1271,6 +1293,14 @@ def draw_grade_chart(df_scores):
         marker=dict(size=5, color="#2F80ED", symbol='circle-open'),
         opacity=0.35, name="Pass Grade (only)",
         hovertemplate="%{x}<br>Pass Grade: %{y:.1f}"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y_def_grade,
+        mode='lines+markers',
+        line=dict(color="#a78bfa", width=1, dash='dot'),
+        marker=dict(size=5, color="#a78bfa", symbol='circle-open'),
+        opacity=0.35, name="Defensive Grade",
+        hovertemplate="%{x}<br>Defensive Grade: %{y:.1f}"
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_grade] * len(x_labels),
@@ -1491,20 +1521,22 @@ with tab_graf:
         avg_xt_p90 = sum(s['xt_p90'] for s in all_match_stats) / num_matches
         avg_total_p90 = sum(s['total_p90'] for s in all_match_stats) / num_matches
 
-        st.markdown("### Passes")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            row_label("Passes")
-            summary_box("Passes p90", f"{avg_total_p90:.1f}", f"Total: {total_passes_all}", border=C_BLUE)
-            summary_box("Successful %", f"{avg_acc:.1f}%", f"Total: {total_succ_all}", border=C_BLUE)
+            section_card("📋 Passes", C_BLUE, [
+                ("Passes p90", f"{avg_total_p90:.1f}", f"Total: {total_passes_all}"),
+                ("Successful %", f"{avg_acc:.1f}%", f"Total: {total_succ_all}"),
+            ])
         with col_s2:
-            row_label("Advanced")
-            summary_box("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}", border=C_GREEN)
-            summary_box("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}", border=C_GREEN)
+            section_card("📊 Advanced", C_GREEN, [
+                ("Progressive p90", f"{avg_prog_p90:.1f}", f"Total: {total_prog_all}"),
+                ("Final Third p90", f"{avg_f3_p90:.1f}", f"Total: {total_f3_all}"),
+            ])
         with col_s3:
-            row_label("Pass Impact")
-            summary_box("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}", border=C_AMBER)
-            summary_box("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}", border=C_AMBER)
+            section_card("⚡ Pass Impact", C_AMBER, [
+                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}"),
+                ("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}"),
+            ])
 
         st.markdown("", unsafe_allow_html=True)
 
@@ -1514,6 +1546,7 @@ with tab_graf:
         total_def_actions_all = sum(s['total_actions'] for s in defensive_all_stats)
         total_def_att_all = sum(s['actions_attacking'] for s in defensive_all_stats)
         total_duels_all = sum(s['total_duels'] for s in defensive_all_stats)
+        total_duels_won_all = sum(s['duels_won'] for s in defensive_all_stats)
         total_interceptions_all = sum(s['interceptions'] for s in defensive_all_stats)
         total_int_att_all = sum(s['interceptions_attacking'] for s in defensive_all_stats)
         avg_def_actions_p90 = sum(s['total_actions_p90'] for s in defensive_all_stats) / defensive_num_matches
@@ -1523,20 +1556,22 @@ with tab_graf:
         avg_interceptions_p90 = sum(s['interceptions_p90'] for s in defensive_all_stats) / defensive_num_matches
         avg_int_att_p90 = sum(s['interceptions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
 
-        st.markdown("### Defensive Actions")
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
-            row_label("🛡️ General")
-            summary_box("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}", border=C_BLUE)
-            summary_box("Def. Actions in Attack p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}", border=C_BLUE)
+            section_card("🛡️ General", C_BLUE, [
+                ("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}"),
+                ("Def. Actions in Attack p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}"),
+            ])
         with col_d2:
-            row_label("⚔️ Duels")
-            summary_box("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}", border=C_GREEN)
-            summary_box("% Duels Won", f"{avg_duels_won_pct:.1f}%", border=C_GREEN)
+            section_card("⚔️ Duels", C_GREEN, [
+                ("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}"),
+                ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
+            ])
         with col_d3:
-            row_label("👁️ Interceptions")
-            summary_box("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}", border=C_AMBER)
-            summary_box("Interceptions in Attack p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}", border=C_AMBER)
+            section_card("👁️ Interceptions", C_AMBER, [
+                ("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}"),
+                ("Interceptions in Attack p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
+            ])
 
         st.markdown(f'<div style="text-align:right;color:#6b6b80;font-size:12px;margin-top:8px;">{num_matches} matches collected</div>', unsafe_allow_html=True)
         st.markdown("", unsafe_allow_html=True)
