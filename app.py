@@ -103,13 +103,9 @@ D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 
 #
-# NEW: DEFENSIVE DATA STRUCTURE (ready to receive coordinates)
-# Format for each match:
-#   "duels_won": [(x, y), ...]
-#   "duels_lost": [(x, y), ...]
-#   "interceptions": [(x, y), ...]
+# DEFENSIVE DATA STRUCTURE (ready to receive coordinates)
 #
-DEFENSIVE_DATA = {}  # Will be populated with coordinates later
+DEFENSIVE_DATA = {}
 
 #
 # BASE PASSES
@@ -263,7 +259,6 @@ def apply_date_mapping(name: str) -> str:
     return name
 
 def get_match_minutes(match_name: str) -> float:
-    """Returns the minutes played for a given match to calculate p90."""
     name_lower = match_name.lower()
     if "connecticut" in name_lower: return 60.0
     if "nashville" in name_lower: return 60.0
@@ -333,14 +328,9 @@ def xt_value(x, y):
     return float(XT_GRID[iy, ix])
 
 #
-# NEW: DEFENSIVE STATS FUNCTION
+# DEFENSIVE STATS FUNCTION
 #
 def compute_defensive_stats(def_data: dict, match_name: str) -> dict:
-    """
-    Computes defensive stats from coordinate data.
-    def_data format: {"duels_won": [(x,y),...], "duels_lost": [(x,y),...], "interceptions": [(x,y),...]}
-    If def_data is empty or no coordinates, returns zeroed stats.
-    """
     mins = get_match_minutes(match_name)
     p90_factor = 90.0 / mins if mins > 0 else 1.0
     
@@ -348,7 +338,6 @@ def compute_defensive_stats(def_data: dict, match_name: str) -> dict:
     dl = def_data.get("duels_lost", []) if isinstance(def_data, dict) else []
     inter = def_data.get("interceptions", []) if isinstance(def_data, dict) else []
     
-    # Handle DataFrame vs list
     if isinstance(dw, pd.DataFrame):
         dw_list = list(zip(dw["x"], dw["y"])) if len(dw) > 0 else []
     else:
@@ -367,11 +356,9 @@ def compute_defensive_stats(def_data: dict, match_name: str) -> dict:
     total_duels = len(dw_list) + len(dl_list)
     total_def = total_duels + len(inter_list)
     
-    # Actions in attacking half (x > 60)
     all_def = dw_list + dl_list + inter_list
     att_half = sum(1 for p in all_def if p[0] > 60)
     
-    # xT of interception locations
     inter_xt = sum(xt_value(p[0], p[1]) for p in inter_list)
     
     duel_success_pct = (len(dw_list) / total_duels * 100.0) if total_duels > 0 else 0.0
@@ -386,7 +373,6 @@ def compute_defensive_stats(def_data: dict, match_name: str) -> dict:
     }
 
 def compute_defensive_stats_avg(all_def_stats: list) -> dict:
-    """Compute averages across all matches with defensive data."""
     if not all_def_stats:
         return {
             "acoes_defensivas": 0,
@@ -495,21 +481,20 @@ for match_name, events in combined_matches_data.items():
     dfm["delta_xt_adj"] = np.where(dfm["is_won"], dfm["delta_xt"] * (1.0 + dfm["dist_bonus"]), 0.0)
     dfs_by_match[match_name] = dfm
 
-# REORDER LOGIC: Move Match 15-18 to be after Match 6
+# REORDER: Move Match 15-18 to be after Match 6
 items = list(dfs_by_match.items())
 if len(items) >= 18:
-    part1 = items[:6]    # Matches 1 to 6
-    part2 = items[14:18] # Matches 15 to 18
-    part3 = items[6:14]  # Matches 7 to 14
-    part4 = items[18:]   # Matches 19+
+    part1 = items[:6]
+    part2 = items[14:18]
+    part3 = items[6:14]
+    part4 = items[18:]
     dfs_by_match = dict(part1 + part2 + part3 + part4)
 
 #
-# NEW: BUILD DEFENSIVE DATAFRAMES (initially empty, ready for coordinate data)
+# BUILD DEFENSIVE DATAFRAMES (initially empty)
 #
-defensive_dfs_by_match = {}  # {match_name: {"duels_won": DataFrame, "duels_lost": DataFrame, "interceptions": DataFrame}}
+defensive_dfs_by_match = {}
 
-# Initialize for all match names that exist in pass data
 for match_name in dfs_by_match:
     def_data = DEFENSIVE_DATA.get(match_name, {"duels_won": [], "duels_lost": [], "interceptions": []})
     def_dict = {}
@@ -566,13 +551,11 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     to_final_third_success = int((to_final_third & df["is_won"]).sum())
     to_final_third_accuracy = (to_final_third_success / to_final_third_total * 100.0) if to_final_third_total else 0.0
 
-    # Long passes (> 25m)
     long_passes = df[df["pass_distance"] > 25.0]
     long_total = len(long_passes)
     long_success = int(long_passes["is_won"].sum())
     long_acc_pct = (long_success / long_total * 100.0) if long_total > 0 else 0.0
 
-    # Dangerous Zone Passes (Last column OR center of the 5th column)
     dz_mask = df["is_won"] & (
         (df["x_end"] >= 100.0) |
         ((df["x_end"] >= 80.0) & (df["x_end"] < 100.0) & (df["y_end"] >= LANE_RIGHT_MAX) & (df["y_end"] < LANE_LEFT_MIN))
@@ -589,7 +572,6 @@ def compute_stats(df: pd.DataFrame, match_name: str) -> dict:
     high_xt = int((df["delta_xt_adj"] > 0.1).sum())
     sum_dxt = float(df.loc[df["is_won"], "delta_xt_adj"].sum())
 
-    # Negative Pass Impact (passes that lost threat)
     neg_xt = float(df.loc[df["is_won"] & (df["delta_xt_adj"] < 0), "delta_xt_adj"].sum())
 
     return {
@@ -644,13 +626,11 @@ def compute_match_scores(dfs_dict):
     df_scores = pd.DataFrame(records)
     if df_scores.empty: return df_scores
 
-    # Absolute scale normalization with fixed floor and ceiling
     def normalize_fixed(series, val_min, val_max):
         clipped_series = series.clip(lower=val_min, upper=val_max)
         if val_max == val_min: return pd.Series([70.0] * len(series))
         return 40 + ((clipped_series - val_min) / (val_max - val_min)) * 60
 
-    # Apply absolute limits
     df_scores['xt_norm'] = normalize_fixed(df_scores['xt_p90'], val_min=0.05, val_max=0.45)
     df_scores['prog_norm'] = normalize_fixed(df_scores['prog_p90'], val_min=1.0, val_max=15.0)
     df_scores['f3_norm'] = normalize_fixed(df_scores['f3_p90'], val_min=1.0, val_max=15.0)
@@ -658,7 +638,6 @@ def compute_match_scores(dfs_dict):
     df_scores['total_p90_norm'] = normalize_fixed(df_scores['total_p90'], val_min=10.0, val_max=85.0)
     df_scores['neg_xt_norm'] = normalize_fixed(df_scores['neg_xt_p90'], val_min=-0.15, val_max=0.00)
 
-    # Weights
     df_scores['Grade'] = (df_scores['xt_norm'] * 0.30) + \
                          (df_scores['prog_norm'] * 0.20) + \
                          (df_scores['f3_norm'] * 0.20) + \
@@ -707,7 +686,6 @@ def cmp_box(label, val_game, val_avg, disp_game=None, disp_avg=None, sub_game=""
     st.markdown(html, unsafe_allow_html=True)
 
 def summary_box(label, value, sub_value="", border="#3b82f6"):
-    """A simplified metric box for overall stats without comparison arrows"""
     sub_html = f'<span>{sub_value}</span>' if sub_value else ""
     html = (
         f'<div class="metric-box" style="border-left-color: {border};">'
@@ -887,7 +865,6 @@ def draw_grade_chart(df_scores):
     y = df_scores["Grade"]
     mean_grade = y.mean()
 
-    # Metrics for Tooltip Feature
     metrics = {
         'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
         'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
@@ -1031,7 +1008,6 @@ def draw_xt_chart(df_scores):
     return fig
 
 def draw_comparison_bar(title, val_first, val_last, suffix=""):
-    """Helper function to draw clean comparison bars for Evolution tab"""
     color_last = "#10b981" if val_last >= val_first else "#E07070"
 
     fig = go.Figure()
@@ -1063,14 +1039,12 @@ st.sidebar.title("Pass Dashboard")
 st.sidebar.markdown("### 2026 Matches")
 st.sidebar.markdown("#### Hudson Cicala")
 
-# Add image if exists
 img_path = "Captura de tela 2026-06-02 154425.png"
 if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
 
 st.sidebar.markdown("---")
 
-# Calculate averages across all loaded matches globally
 num_matches = len(dfs_by_match)
 all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 
@@ -1113,17 +1087,16 @@ with tab_graf:
 
         st.markdown(f"<p style='text-align:center;color:#64748b;font-size:12px;'>{num_matches} matches collected</p>", unsafe_allow_html=True)
 
-        # --- NEW: Defensive Stats Boxes ---
+        # --- Defensive Stats Boxes ---
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 🛡️ Defensive Summary (Avg per match)")
 
-        # Aggregate all defensive data
         total_acoes = sum(ds["acoes_defensivas"] for ds in all_def_stats)
         total_ataque = sum(ds["acoes_campo_ataque"] for ds in all_def_stats)
-        total_intercept = sum(ds["interceptacoes_p90"] for ds in all_def_stats)
-        total_duelos_p90 = sum(ds["duelos_p90"] for ds in all_def_stats)
+        avg_duelos_p90 = s_def_avg["duelos_p90"]
         avg_duel_pct = s_def_avg["duelos_success_pct"]
-        total_xt_intercept = sum(ds["interceptacao_xt_sum"] for ds in all_def_stats)
+        avg_intercept_p90 = s_def_avg["interceptacoes_p90"]
+        avg_xt_intercept = s_def_avg["interceptacao_xt_sum"]
 
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
@@ -1143,11 +1116,9 @@ with tab_graf:
     
     df_scores = compute_match_scores(dfs_by_match)
     if not df_scores.empty:
-        # Chart 1: General Grade (Blue) - FIRST CHART
         fig_scores = draw_grade_chart(df_scores)
         st.plotly_chart(fig_scores, use_container_width=True)
 
-        # Grade explanation expander - NOW BELOW the grade chart, simplified text
         with st.expander("How is the Grade calculated?"):
             st.markdown("""
             **Metrics evaluated:**
@@ -1162,19 +1133,15 @@ with tab_graf:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### Stats")
 
-        # Chart: Total Passes (Cyan)
         fig_total = draw_total_passes_chart(df_scores)
         st.plotly_chart(fig_total, use_container_width=True)
 
-        # Chart: Progressive Passes (Green)
         fig_prog = draw_progressive_chart(df_scores)
         st.plotly_chart(fig_prog, use_container_width=True)
 
-        # Chart: Final Third Passes (Purple)
         fig_f3 = draw_final_third_chart(df_scores)
         st.plotly_chart(fig_f3, use_container_width=True)
 
-        # Chart: Σ Pass Impact (Amber)
         fig_xt = draw_xt_chart(df_scores)
         st.plotly_chart(fig_xt, use_container_width=True)
     else:
@@ -1215,7 +1182,7 @@ with tab_dash:
 
     st.markdown("---")
 
-    # --- ROW 1: MAPS ---
+    # ROW 1: MAPS
     img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
     img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
     img_xt_game, fig_xt_game = draw_top5_xt_map(df_game); plt.close(fig_xt_game)
@@ -1233,7 +1200,7 @@ with tab_dash:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- ROW 2: STATS (2 Metrics per Column) ---
+    # ROW 2: STATS (2 per column)
     col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
         row_label("📋 Pass Overview", "row-label-blue")
@@ -1264,7 +1231,6 @@ with tab_evo:
         last_9 = df_scores.tail(9)
 
         # Layout 3x3
-        # Row 1
         r1c1, r1c2, r1c3 = st.columns(3)
         with r1c1:
             fig_grade = draw_comparison_bar("Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
@@ -1276,7 +1242,6 @@ with tab_evo:
             fig_high_xt_evo = draw_comparison_bar("High Impact Passes", first_9["high_xt_p90"].mean(), last_9["high_xt_p90"].mean())
             st.plotly_chart(fig_high_xt_evo, use_container_width=True)
 
-        # Row 2
         r2c1, r2c2, r2c3 = st.columns(3)
         with r2c1:
             fig_prog_evo = draw_comparison_bar("Progressive Passes", first_9["prog_p90"].mean(), last_9["prog_p90"].mean())
@@ -1288,7 +1253,6 @@ with tab_evo:
             fig_dz_evo = draw_comparison_bar("Dangerous Zone Passes", first_9["dz_p90"].mean(), last_9["dz_p90"].mean())
             st.plotly_chart(fig_dz_evo, use_container_width=True)
 
-        # Row 3
         r3c1, r3c2, r3c3 = st.columns(3)
         with r3c1:
             fig_acc_evo = draw_comparison_bar("Successful Passes %", first_9["accuracy_pct"].mean(), last_9["accuracy_pct"].mean(), suffix="%")
