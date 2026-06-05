@@ -1584,9 +1584,9 @@ with tab_graf:
 
         with st.expander("How is the Grade calculated?"):
             st.markdown("""
-**Grade = 75% Passing + 25% Defensive**
+**Grade**
 
-**Pass Grade (75%):**
+**Pass Grade**
 - **Pass Impact:** Measures actual danger created by passes.
 - **Progressive Passes:** Line-breaking ability.
 - **Final Third Passes:** Attacking presence in dangerous zones.
@@ -1594,11 +1594,11 @@ with tab_graf:
 - **Total Passes:** Overall involvement.
 - **Negative Pass Impact:** Penalty for passes that lose threat.
 
-**Defensive Grade (25%):**
-- **35% Duels Won %:** Rewards efficiency in defensive duels.
-- **25% Interception xT:** Rewards interceptions in high-threat zones.
-- **20% Duels Won (Count):** Rewards volume of duels won.
-- **20% Interceptions (Count):** Rewards volume of interceptions.
+**Defensive Grade**
+- **Duels Won %:** Rewards efficiency in defensive duels.
+- **Interception xT:** Rewards interceptions in high-threat zones.
+- **Duels Won (Count):** Rewards volume of duels won.
+- **Interceptions (Count):** Rewards volume of interceptions.
 """)
 
         st.markdown("", unsafe_allow_html=True)
