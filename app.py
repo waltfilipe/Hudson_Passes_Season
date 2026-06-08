@@ -58,7 +58,7 @@ NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 PENALTY_AREA_X = 18.0
-FUNNEL_X_EXTEND = 15.0
+FUNNEL_X_EXTEND = 33.0
 PENALTY_AREA_Y_MIN = 18.0
 PENALTY_AREA_Y_MAX = 62.0
 
@@ -790,11 +790,13 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         interceptions_p90_list = []
         duels_won_p90_list = []
         int_xt_avg_list = []
+        funnel_p90_list = []
         for _, row in df_scores.iterrows():
             team = row['match'].split('(')[0].strip()
             bonus = 0
             dp = 0; dwp = 0; ip = 0
             dwp90 = 0; int_xt_avg_rounded = 0
+            funnel_p90_val = 0.0
             for def_name, def_df in defensive_dfs_dict.items():
                 def_team = def_name.split('(')[0].strip()
                 if def_team == team:
@@ -808,6 +810,8 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
                     dwp90 = round(duels_won * p90, 1)
                     interceptions = int(def_df["is_interception"].sum())
                     ip = round(interceptions * p90, 1)
+                    funnel_count = int(def_df["in_funnel"].sum())
+                    funnel_p90_val = round(funnel_count * p90, 1)
                     int_df = def_df[def_df["is_interception"]]
                     if len(int_df) > 0:
                         int_xt_vals = [xt_value(float(r["x"]), float(r["y"])) for _, r in int_df.iterrows()]
@@ -825,12 +829,14 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
             interceptions_p90_list.append(ip)
             duels_won_p90_list.append(dwp90)
             int_xt_avg_list.append(int_xt_avg_rounded)
+            funnel_p90_list.append(funnel_p90_val)
         df_scores['def_bonus'] = def_bonus_list
         df_scores['duels_p90'] = duels_p90_list
         df_scores['duels_won_pct'] = duels_won_pct_list
         df_scores['interceptions_p90'] = interceptions_p90_list
         df_scores['duels_won_p90'] = duels_won_p90_list
         df_scores['int_xt_avg'] = int_xt_avg_list
+        df_scores['funnel_p90'] = funnel_p90_list
     else:
         df_scores['def_bonus'] = 0.0
         df_scores['duels_p90'] = 0.0
@@ -838,6 +844,7 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         df_scores['interceptions_p90'] = 0.0
         df_scores['duels_won_p90'] = 0.0
         df_scores['int_xt_avg'] = 0.0
+        df_scores['funnel_p90'] = 0.0
     df_scores['pass_grade'] = df_scores['Grade'].round(1).copy()
     def _norm_def(s, lo, hi):
         clipped = s.clip(lower=lo, upper=hi)
@@ -848,11 +855,13 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
     df_scores['int_xt_norm'] = _norm_def(df_scores['int_xt_avg'], 0, 0.30)
     df_scores['duels_won_p90_norm'] = _norm_def(df_scores['duels_won_p90'], 0, 15)
     df_scores['interceptions_p90_norm'] = _norm_def(df_scores['interceptions_p90'], 0, 15)
+    df_scores['funnel_p90_norm'] = _norm_def(df_scores['funnel_p90'], 0, 15)
     df_scores['def_grade'] = (
-        df_scores['duels_won_pct_norm'] * 0.35 +
+        df_scores['duels_won_pct_norm'] * 0.30 +
+        df_scores['funnel_p90_norm'] * 0.15 +
         df_scores['int_xt_norm'] * 0.25 +
-        df_scores['duels_won_p90_norm'] * 0.20 +
-        df_scores['interceptions_p90_norm'] * 0.20
+        df_scores['duels_won_p90_norm'] * 0.15 +
+        df_scores['interceptions_p90_norm'] * 0.15
     ).round(1)
     df_scores['Grade'] = (df_scores['pass_grade'] * 0.75 + df_scores['def_grade'] * 0.25).round(1)
     return df_scores
@@ -1329,10 +1338,11 @@ def draw_grade_chart(df_scores):
         'Total Passes': 'total_p90',
     }
     def_metrics = {
-        'Defensive Duels': 'duels_p90',
         '% Duels Won': 'duels_won_pct',
-        'Interceptions': 'interceptions_p90',
+        'Funnel Actions': 'funnel_p90',
         'Interception xT': 'int_xt_avg',
+        'Duels Won': 'duels_won_p90',
+        'Interceptions': 'interceptions_p90',
     }
     pass_avgs = {name: df_scores[col].mean() for name, col in pass_metrics.items()}
     def_avgs = {name: df_scores[col].mean() for name, col in def_metrics.items()}
@@ -1596,36 +1606,6 @@ def draw_defensive_interceptions_chart(df_scores):
     )
     return fig
 
-def draw_funnel_actions_chart(df_scores):
-    fig = go.Figure()
-    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
-    y = df_scores["funnel_p90"]
-    mean_val = y.mean()
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y,
-        customdata=df_scores["match"],
-        mode='lines+markers',
-        line=dict(color="#ffd700", width=3, shape='spline'),
-        marker=dict(size=8, color="#ffd700"),
-        fill='tozeroy', fillcolor='rgba(255, 215, 0, 0.05)',
-        name="Funnel Actions",
-        hovertemplate="%{customdata}<br>Funnel Actions p90: %{y:.1f}"
-    ))
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_val] * len(x_labels),
-        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
-        name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
-    ))
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=290, margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
-        xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Funnel Zone Actions p90", font=dict(size=14, color="#a0a0b5"))
-    )
-    return fig
-
 def draw_comparison_bar(title, val_first, val_last, suffix=""):
     color_last = "#10b981" if val_last >= val_first else "#E07070"
     fig = go.Figure()
@@ -1768,10 +1748,11 @@ with tab_graf:
 - **Negative Pass Impact:** Penalty for passes that lose threat.
 
 **Defensive Grade**
-- **Duels Won %:** Rewards efficiency in defensive duels.
-- **Interception xT:** Rewards interceptions in high-threat zones.
-- **Duels Won (Count):** Rewards volume of duels won.
-- **Interceptions (Count):** Rewards volume of interceptions.
+- **Duels Won % (30%):** Rewards efficiency in defensive duels.
+- **Funnel Defensive Actions (15%):** Rewards actions in the defensive funnel zone.
+- **Interception xT (25%):** Rewards interceptions in high-threat zones.
+- **Duels Won Count (15%):** Rewards volume of duels won.
+- **Interceptions Count (15%):** Rewards volume of interceptions.
 """)
 
             st.markdown("", unsafe_allow_html=True)
@@ -1794,8 +1775,6 @@ with tab_graf:
                 st.plotly_chart(fig_duels, use_container_width=True)
                 fig_interceptions = draw_defensive_interceptions_chart(df_def_scores)
                 st.plotly_chart(fig_interceptions, use_container_width=True)
-                fig_funnel = draw_funnel_actions_chart(df_def_scores)
-                st.plotly_chart(fig_funnel, use_container_width=True)
             else:
                 st.warning("Not enough data to generate charts.")
 
