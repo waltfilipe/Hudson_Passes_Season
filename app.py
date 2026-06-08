@@ -850,7 +850,10 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
 
 def compute_defensive_stats(df: pd.DataFrame, match_name: str) -> dict:
     total_actions = len(df)
-    mins = get_match_minutes(match_name)
+    if match_name == "All Matches":
+        mins = sum(get_match_minutes(k) for k in defensive_dfs_by_match)
+    else:
+        mins = get_match_minutes(match_name)
     p90_factor = 90.0 / mins if mins > 0 else 1.0
     duels_won = int(df["is_duel_won"].sum())
     duels_lost = int(df["is_duel_lost"].sum())
@@ -941,31 +944,35 @@ def _arrow_html(val_game: float, val_avg: float) -> str:
         return ""
     if val_game > val_avg:
         pct = _safe_pct_diff(val_game, val_avg)
-        return f' <span style="color:#34d399;font-weight:600">↑ {pct:.0f}%</span>'
+        return f' <span style="display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#059669;padding:1px 7px;border-radius:10px;vertical-align:middle;line-height:1.6">+{pct:.0f}%</span>'
     else:
         pct = _safe_pct_diff(val_avg, val_game)
-        return f' <span style="color:#f87171;font-weight:600">↓ {pct:.0f}%</span>'
+        return f' <span style="display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#dc2626;padding:1px 7px;border-radius:10px;vertical-align:middle;line-height:1.6">-{pct:.0f}%</span>'
 
 def section_card(title, border_color, items):
     bg = _hex_to_rgba(border_color, 0.55)
     bd = _hex_to_rgba(border_color, 0.30)
     html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
     html += f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
-    for item in items:
+    for idx, item in enumerate(items):
         label = item[0]
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
         tooltip = item[3] if len(item) > 3 else ""
-        html += f'<div style="padding:5px 0">'
+        is_last = idx == len(items) - 1
+        sep = "" if is_last else 'style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;margin-bottom:6px"'
+        html += f'<div {sep}>'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:center">'
         if tooltip:
-            label_html = f'<span style="cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
-            label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:5px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
-            html += f'<div style="font-size:13px;color:#ffffff;margin-bottom:4px;font-weight:600">{label_html}</div>'
+            label_html = f'<span style="font-size:14px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
+            label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:4px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
+            html += f'<div>{label_html}</div>'
         else:
-            html += f'<div style="font-size:13px;color:#ffffff;margin-bottom:4px;font-weight:600">{label}</div>'
-        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.3">{value}</div>'
+            html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
+        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2;text-align:right">{value}</div>'
+        html += '</div>'
         if sub:
-            html += f'<div style="font-size:12px;color:#ffffff;opacity:0.60;margin-top:2px">{sub}</div>'
+            html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">{sub}</div>'
         html += '</div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
@@ -975,7 +982,7 @@ def cmp_section_card(title, border_color, items):
     bd = _hex_to_rgba(border_color, 0.30)
     html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
     html += f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
-    for item in items:
+    for idx, item in enumerate(items):
         label = item[0]
         val_game = item[1]
         val_avg = item[2]
@@ -983,15 +990,19 @@ def cmp_section_card(title, border_color, items):
         disp_avg = item[4] if len(item) > 4 else str(val_avg)
         tooltip = item[5] if len(item) > 5 else ""
         arrow = _arrow_html(float(val_game), float(val_avg))
-        html += f'<div style="padding:5px 0">'
+        is_last = idx == len(items) - 1
+        sep = "" if is_last else 'style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;margin-bottom:6px"'
+        html += f'<div {sep}>'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:center">'
         if tooltip:
-            label_html = f'<span style="cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
-            label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:5px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
-            html += f'<div style="font-size:13px;color:#ffffff;margin-bottom:4px;font-weight:600">{label_html}</div>'
+            label_html = f'<span style="font-size:14px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
+            label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:4px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
+            html += f'<div>{label_html}</div>'
         else:
-            html += f'<div style="font-size:13px;color:#ffffff;margin-bottom:4px;font-weight:600">{label}</div>'
-        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.3">{disp_game}{arrow}</div>'
-        html += f'<div style="font-size:12px;color:#ffffff;opacity:0.60;margin-top:2px">AVG: {disp_avg}</div>'
+            html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
+        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2;text-align:right">{disp_game}{arrow}</div>'
+        html += '</div>'
+        html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">AVG: {disp_avg}</div>'
         html += '</div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
@@ -1376,6 +1387,36 @@ def draw_final_third_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
+    )
+    return fig
+
+def draw_final_third_chart(df_scores):
+    fig = go.Figure()
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
+    y = df_scores["f3_p90"]
+    mean_f3 = y.mean()
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
+        line=dict(color="#8b5cf6", width=3, shape='spline'),
+        marker=dict(size=8, color="#8b5cf6"),
+        fill='tozeroy', fillcolor='rgba(139, 92, 246, 0.05)',
+        name="Final Third Passes",
+        hovertemplate="%{customdata}<br>Final Third: %{y:.1f}"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_f3] * len(x_labels),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
+        name=f"Avg: {mean_f3:.1f}", hoverinfo='skip'
+    ))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Final Third Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
@@ -1685,6 +1726,9 @@ with tab_dash:
         else:
             s_avg = s_game.copy()
 
+        if selected_match == "All Matches":
+            st.caption("ℹ️ \"All Matches\" agrega todos os eventos e normaliza pelo total de minutos somados (média ponderada por tempo). O \"AVG\" é a média aritmética dos valores p90 de cada partida individual. Por isso os valores diferem.")
+
         st.markdown("---")
         img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
         img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
@@ -1759,6 +1803,9 @@ with tab_dash:
                     d_avg[k] = 0
         else:
             d_avg = d_game.copy()
+
+        if selected_def_match == "All Matches":
+            st.caption("ℹ️ \"All Matches\" agrega todos os eventos e normaliza pelo total de minutos somados (média ponderada por tempo). O \"AVG\" é a média aritmética dos valores p90 de cada partida individual. Por isso os valores diferem.")
 
         st.markdown("---")
         img_def_map, fig_def_map = draw_defensive_map(df_def_game); plt.close(fig_def_map)
