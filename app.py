@@ -1748,11 +1748,11 @@ with tab_graf:
 - **Negative Pass Impact:** Penalty for passes that lose threat.
 
 **Defensive Grade**
-- **Duels Won % (30%):** Rewards efficiency in defensive duels.
-- **Funnel Defensive Actions (15%):** Rewards actions in the defensive funnel zone.
-- **Interception xT (25%):** Rewards interceptions in high-threat zones.
-- **Duels Won Count (15%):** Rewards volume of duels won.
-- **Interceptions Count (15%):** Rewards volume of interceptions.
+- **Duels Won %:** Rewards efficiency in defensive duels.
+- **Funnel Defensive Actions:** Rewards actions in the defensive funnel zone.
+- **Interception xT:** Rewards interceptions in high-threat zones.
+- **Duels Won Count:** Rewards volume of duels won.
+- **Interceptions Count:** Rewards volume of interceptions.
 """)
 
             st.markdown("", unsafe_allow_html=True)
