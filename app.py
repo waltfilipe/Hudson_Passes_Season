@@ -1721,7 +1721,7 @@ with tab_graf:
                     ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
                 ])
             with col_d3:
-                section_card("👁️ Interceptions", C_AMBER_PASTEL, [
+                section_card("❌ Interceptions", C_AMBER_PASTEL, [
                     ("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}"),
                     ("Interceptions in Opp Field p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
                 ])
