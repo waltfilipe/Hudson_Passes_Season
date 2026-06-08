@@ -955,12 +955,8 @@ def section_card(title, border_color, items):
         label = item[0]
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
-        tooltip = item[3] if len(item) > 3 else ""
         html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
-        if tooltip:
-            html += f'<div style="font-size:12px;color:#cccccc" title="{tooltip}">{label}</div>'
-        else:
-            html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
+        html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
         html += f'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#ffffff">{value}</div>'
         if sub:
             html += f'<div style="font-size:10px;color:#999999">{sub}</div>'
@@ -979,13 +975,9 @@ def cmp_section_card(title, border_color, items):
         val_avg = item[2]
         disp_game = item[3] if len(item) > 3 else str(val_game)
         disp_avg = item[4] if len(item) > 4 else str(val_avg)
-        tooltip = item[5] if len(item) > 5 else ""
         arrow = _arrow_html(float(val_game), float(val_avg))
         html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
-        if tooltip:
-            html += f'<div style="font-size:12px;color:#cccccc" title="{tooltip}">{label}</div>'
-        else:
-            html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
+        html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
         html += f'<div style="text-align:right"><div>{disp_game}{arrow}</div>'
         html += f'<div style="font-size:10px;color:#999999">AVG: {disp_avg}</div>'
         html += '</div></div>'
@@ -1544,10 +1536,8 @@ with tab_graf:
             ])
         with col_s3:
             section_card("⚡ Impact", C_AMBER_PASTEL, [
-                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}",
-                 "Passes que geraram impacto positivo pela posição do campo em que terminaram"),
-                ("Pass Impact Value", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}",
-                 "Cálculo usado para definir o valor do impacto dos passes com base na progressão da ameaça (xT)"),
+                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}"),
+                ("Pass Impact Value", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}"),
             ])
 
         st.markdown("", unsafe_allow_html=True)
