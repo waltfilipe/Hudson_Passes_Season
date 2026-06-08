@@ -963,17 +963,19 @@ def section_card(title, border_color, items):
         is_last = idx == len(items) - 1
         sep = "" if is_last else 'style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;margin-bottom:6px"'
         html += f'<div {sep}>'
-        html += f'<div style="display:flex;justify-content:space-between;align-items:center">'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
         if tooltip:
             label_html = f'<span style="font-size:14px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
             label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:4px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
             html += f'<div>{label_html}</div>'
         else:
             html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
-        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2;text-align:right">{value}</div>'
-        html += '</div>'
+        html += f'<div style="text-align:right">'
+        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2">{value}</div>'
         if sub:
-            html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">{sub}</div>'
+            html += f'<div style="font-size:12px;font-style:italic;color:#ffffff;opacity:0.55;margin-top:1px">{sub}</div>'
+        html += '</div>'
+        html += '</div>'
         html += '</div>'
     html += '</div></div>'
     st.markdown(html, unsafe_allow_html=True)
@@ -995,7 +997,7 @@ def cmp_section_card(title, border_color, items):
         is_last = idx == len(items) - 1
         sep = "" if is_last else 'style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;margin-bottom:6px"'
         html += f'<div {sep}>'
-        html += f'<div style="display:flex;justify-content:space-between;align-items:center">'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
         if tooltip:
             label_html = f'<span style="font-size:14px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
             label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:4px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
@@ -1003,8 +1005,8 @@ def cmp_section_card(title, border_color, items):
         else:
             html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
         html += f'<div style="text-align:right">'
-        html += f'<div style="font-size:12px;color:#ffffff;opacity:0.65;margin-bottom:1px">AVG: {disp_avg}</div>'
         html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2">{disp_game}{arrow}</div>'
+        html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">AVG: {disp_avg}</div>'
         html += '</div>'
         html += '</div>'
         html += '</div>'
@@ -1122,12 +1124,12 @@ def _draw_comet_arrow(ax, x0, y0, x1, y1, color):
     ax.scatter(x0, y0, s=20, marker="o", facecolors="none", edgecolors=color, linewidths=1.5, zorder=5, alpha=0.85)
     ax.scatter(x1, y1, s=32, marker="o", facecolors=color, edgecolors="white", linewidths=0.9, zorder=6, alpha=0.85)
 
-def draw_top5_xt_map(df):
+def draw_top_xt_map(df, top_n=5):
     fig, ax, pitch = _base_pitch()
-    top5 = (df[(df["is_won"]) & (df["delta_xt_adj"] > 0)]
-            .sort_values("delta_xt_adj", ascending=False).head(5).copy().reset_index(drop=True))
-    if not top5.empty:
-        for _, row in top5.iterrows():
+    top_passes = (df[(df["is_won"]) & (df["delta_xt_adj"] > 0)]
+            .sort_values("delta_xt_adj", ascending=False).head(top_n).copy().reset_index(drop=True))
+    if not top_passes.empty:
+        for _, row in top_passes.iterrows():
             val = float(row["delta_xt_adj"])
             color = CMAP_TOP10(NORM_TOP10(np.clip(val, 0.05, 0.40)))
             _draw_comet_arrow(ax, float(row["x_start"]), float(row["y_start"]),
@@ -1732,13 +1734,15 @@ with tab_dash:
         else:
             s_avg = s_game.copy()
 
-        if selected_match == "All Matches":
+        force_avg = selected_match == "All Matches"
+        if force_avg:
             s_game = s_avg.copy()
 
         st.markdown("---")
         img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
         img_ht_game, fig_ht_game = draw_corridor_heatmap(df_game); plt.close(fig_ht_game)
-        img_xt_game, fig_xt_game = draw_top5_xt_map(df_game); plt.close(fig_xt_game)
+        top_n_xt = 10 if force_avg else 5
+        img_xt_game, fig_xt_game = draw_top_xt_map(df_game, top_n=top_n_xt); plt.close(fig_xt_game)
 
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
@@ -1748,31 +1752,49 @@ with tab_dash:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Zone Heatmap</div>', unsafe_allow_html=True)
             st.image(img_ht_game, use_container_width=True)
         with col_m3:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Top 5 Pass Impact</div>', unsafe_allow_html=True)
+            label = "Top 10" if force_avg else "Top 5"
+            st.markdown(f'<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">{label} Pass Impact</div>', unsafe_allow_html=True)
             st.image(img_xt_game, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_s1, col_s2, col_s3 = st.columns(3)
-        with col_s1:
-            cmp_section_card("📋 Pass Overview", C_BLUE_PASTEL, [
-                ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}"),
-                ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
-                 f"{s_game['accuracy_pct']:.1f}%", f"{s_avg['accuracy_pct']:.1f}%"),
-            ])
-        with col_s2:
-            cmp_section_card("📊 Advanced", C_GREEN_PASTEL, [
-                ("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}"),
-                ("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}"),
-            ])
-        with col_s3:
-            cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
-                ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
-                 f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%",
-                 "Passes that generated a positive impact based on where they ended on the field"),
-                ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"],
-                 f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}",
-                 "Calculation used to define the value of pass impact based on expected threat (xT) progression"),
-            ])
+        if force_avg:
+            with col_s1:
+                cmp_section_card("📋 Pass Overview", C_BLUE_PASTEL, [
+                    ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.2f}", f"{s_game['total_p90']:.2f}", f"{s_avg['total_p90']:.2f}"),
+                    ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"], f"{s_game['accuracy_pct']:.2f}%", f"{s_avg['accuracy_pct']:.2f}%"),
+                ])
+            with col_s2:
+                cmp_section_card("📊 Advanced", C_GREEN_PASTEL, [
+                    ("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.2f}", f"{s_game['prog_p90']:.2f}", f"{s_avg['prog_p90']:.2f}"),
+                    ("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.2f}", f"{s_game['f3_p90']:.2f}", f"{s_avg['f3_p90']:.2f}"),
+                ])
+            with col_s3:
+                cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
+                    ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"], f"{s_game['pos_pct']:.2f}%", f"{s_avg['pos_pct']:.2f}%"),
+                    ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"], f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}"),
+                ])
+        else:
+            with col_s1:
+                cmp_section_card("📋 Pass Overview", C_BLUE_PASTEL, [
+                    ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.1f}"),
+                    ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"],
+                     f"{s_game['accuracy_pct']:.1f}%", f"{s_avg['accuracy_pct']:.1f}%"),
+                ])
+            with col_s2:
+                cmp_section_card("📊 Advanced", C_GREEN_PASTEL, [
+                    ("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.1f}"),
+                    ("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.1f}"),
+                ])
+            with col_s3:
+                cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
+                    ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
+                     f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%",
+                     "Passes that generated a positive impact based on where they ended on the field"),
+                    ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"],
+                     f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}",
+                     "Calculation used to define the value of pass impact based on expected threat (xT) progression"),
+                ])
 
     with sub_tab_def:
         st.markdown("### Match Filter")
@@ -1810,7 +1832,8 @@ with tab_dash:
         else:
             d_avg = d_game.copy()
 
-        if selected_def_match == "All Matches":
+        force_avg_def = selected_def_match == "All Matches"
+        if force_avg_def:
             d_game = d_avg.copy()
 
         st.markdown("---")
@@ -1831,22 +1854,39 @@ with tab_dash:
 
         st.markdown("", unsafe_allow_html=True)
         col_ds1, col_ds2, col_ds3 = st.columns(3)
-        with col_ds1:
-            cmp_section_card("🛡️ General", C_BLUE_PASTEL, [
-                ("Defensive Actions", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}"),
-                ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
-            ])
-        with col_ds2:
-            cmp_section_card("⚔️ Duels", C_GREEN_PASTEL, [
-                ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}"),
-                ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
-                 f"{d_game['duels_won_pct']:.1f}%", f"{d_avg['duels_won_pct']:.1f}%"),
-            ])
-        with col_ds3:
-            cmp_section_card("👁️ Interceptions", C_AMBER_PASTEL, [
-                ("Interceptions", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}"),
-                ("Interceptions in Opp Field", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
-            ])
+        if force_avg_def:
+            with col_ds1:
+                cmp_section_card("🛡️ General", C_BLUE_PASTEL, [
+                    ("Defensive Actions", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.2f}", f"{d_game['total_actions_p90']:.2f}", f"{d_avg['total_actions_p90']:.2f}"),
+                    ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.2f}", f"{d_game['actions_attacking_p90']:.2f}", f"{d_avg['actions_attacking_p90']:.2f}"),
+                ])
+            with col_ds2:
+                cmp_section_card("⚔️ Duels", C_GREEN_PASTEL, [
+                    ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.2f}", f"{d_game['duels_p90']:.2f}", f"{d_avg['duels_p90']:.2f}"),
+                    ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"], f"{d_game['duels_won_pct']:.2f}%", f"{d_avg['duels_won_pct']:.2f}%"),
+                ])
+            with col_ds3:
+                cmp_section_card("👁️ Interceptions", C_AMBER_PASTEL, [
+                    ("Interceptions", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.2f}", f"{d_game['interceptions_p90']:.2f}", f"{d_avg['interceptions_p90']:.2f}"),
+                    ("Interceptions in Opp Field", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.2f}", f"{d_game['interceptions_attacking_p90']:.2f}", f"{d_avg['interceptions_attacking_p90']:.2f}"),
+                ])
+        else:
+            with col_ds1:
+                cmp_section_card("🛡️ General", C_BLUE_PASTEL, [
+                    ("Defensive Actions", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}"),
+                    ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
+                ])
+            with col_ds2:
+                cmp_section_card("⚔️ Duels", C_GREEN_PASTEL, [
+                    ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}"),
+                    ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
+                     f"{d_game['duels_won_pct']:.1f}%", f"{d_avg['duels_won_pct']:.1f}%"),
+                ])
+            with col_ds3:
+                cmp_section_card("👁️ Interceptions", C_AMBER_PASTEL, [
+                    ("Interceptions", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}"),
+                    ("Interceptions in Opp Field", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
+                ])
 
 with tab_evo:
     sub_tab_evo_passes, sub_tab_evo_def = st.tabs(["Passes", "Defensive Actions"])
