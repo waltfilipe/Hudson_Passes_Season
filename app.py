@@ -1572,7 +1572,7 @@ def draw_defensive_duels_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Defensive Duels p90", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Defensive Duels", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
@@ -1602,7 +1602,7 @@ def draw_defensive_interceptions_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Interceptions p90", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Interceptions", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
@@ -1632,7 +1632,7 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
 # SIDEBAR
 st.sidebar.markdown("""
 <div style="text-align:center;padding:8px 0 4px 0">
-    <div style="font-size:20px;font-weight:300;letter-spacing:2px;color:#a0a0b5;text-transform:uppercase">Stats</div>
+    <div style="font-size:20px;font-weight:300;letter-spacing:2px;color:#a0a0b5;text-transform:uppercase">Pass Stats</div>
     <div style="font-size:13px;font-weight:600;color:#ffffff;margin-top:-2px">Dashboard</div>
 </div>
 <div style="border-bottom:1px solid #2a2a3e;margin:6px 0 12px 0"></div>
@@ -1687,7 +1687,7 @@ with tab_graf:
                 ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}",
                  "Passes that generated a positive impact based on where they ended on the field"),
                 ("Pass Impact Value", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}",
-                 "Calculation used to define the value of pass impact based on expected threat (xT) progression"),
+                 "Calculation used to evaluate the offensive value added by a pass."),
             ])
 
         st.markdown("", unsafe_allow_html=True)
@@ -1936,7 +1936,7 @@ with tab_dash:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Actions Map</div>', unsafe_allow_html=True)
             st.image(img_def_map, use_container_width=True)
         with col_dm2:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Corridor Heatmap</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Heatmap</div>', unsafe_allow_html=True)
             st.image(img_def_hm, use_container_width=True)
         with col_dm3:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Funnel Protection Actions</div>', unsafe_allow_html=True)
@@ -1993,7 +1993,7 @@ with tab_evo:
 
             r1c1, r1c2, r1c3 = st.columns(3)
             with r1c1:
-                fig_grade = draw_comparison_bar("Grade de Passes", first_9["Grade"].mean(), last_9["Grade"].mean())
+                fig_grade = draw_comparison_bar("Pass Grade", first_9["Grade"].mean(), last_9["Grade"].mean())
                 st.plotly_chart(fig_grade, use_container_width=True)
             with r1c2:
                 fig_xt_evo = draw_comparison_bar("Σ Pass Impact", first_9["xt_p90"].mean(), last_9["xt_p90"].mean())
@@ -2043,7 +2043,7 @@ with tab_evo:
                 g2 = last_9_def["grade"].dropna()
                 v1 = g1.mean() if len(g1) > 0 else 0
                 v2 = g2.mean() if len(g2) > 0 else 0
-                fig_grade_def = draw_comparison_bar("Grade de Defensive Actions", v1, v2)
+                fig_grade_def = draw_comparison_bar("Defensive Actions Grade", v1, v2)
                 st.plotly_chart(fig_grade_def, use_container_width=True)
             with rd1c2:
                 fig_duels_won = draw_comparison_bar("Duels Won p90", first_9_def["duels_won_p90"].mean(), last_9_def["duels_won_p90"].mean())
