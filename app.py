@@ -965,11 +965,11 @@ def section_card(title, border_color, items):
         html += f'<div {sep}>'
         html += f'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
         if tooltip:
-            label_html = f'<span style="font-size:14px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
+            label_html = f'<span style="font-size:15px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
             label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:4px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
             html += f'<div>{label_html}</div>'
         else:
-            html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
+            html += f'<div style="font-size:15px;color:#ffffff;font-weight:600">{label}</div>'
         html += f'<div style="text-align:right">'
         html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2">{value}</div>'
         if sub:
@@ -999,11 +999,11 @@ def cmp_section_card(title, border_color, items):
         html += f'<div {sep}>'
         html += f'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
         if tooltip:
-            label_html = f'<span style="font-size:14px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
+            label_html = f'<span style="font-size:15px;color:#ffffff;font-weight:600;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
             label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:4px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
             html += f'<div>{label_html}</div>'
         else:
-            html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
+            html += f'<div style="font-size:15px;color:#ffffff;font-weight:600">{label}</div>'
         html += f'<div style="text-align:right">'
         html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2">{disp_game}{arrow}</div>'
         html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">AVG: {disp_avg}</div>'
@@ -1258,7 +1258,7 @@ def draw_total_passes_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1273,28 +1273,64 @@ def draw_grade_chart(df_scores):
     y_pass_grade = df_scores["pass_grade"]
     y_def_grade = df_scores["def_grade"]
     mean_grade = y_grade.mean()
-    metrics = {
-        'Σ Pass Impact': ('xt_p90', df_scores['xt_p90'].mean()),
-        'Prog Passes': ('prog_p90', df_scores['prog_p90'].mean()),
-        'Final 3rd': ('f3_p90', df_scores['f3_p90'].mean()),
-        '% Pos Impact': ('pos_pct', df_scores['pos_pct'].mean()),
-        'Total Passes': ('total_p90', df_scores['total_p90'].mean()),
+
+    pass_metrics = {
+        'Pass Impact Value': 'xt_p90',
+        'Progressive': 'prog_p90',
+        'Final Third': 'f3_p90',
+        '% Positive Impact': 'pos_pct',
+        'Total Passes': 'total_p90',
     }
-    hover_texts = []
+    def_metrics = {
+        'Defensive Duels': 'duels_p90',
+        '% Duels Won': 'duels_won_pct',
+        'Interceptions': 'interceptions_p90',
+        'Interception xT': 'int_xt_avg',
+    }
+
+    pass_avgs = {name: df_scores[col].mean() for name, col in pass_metrics.items()}
+    def_avgs = {name: df_scores[col].mean() for name, col in def_metrics.items()}
+
+    hover_texts_pass = []
+    hover_texts_def = []
     for _, row in df_scores.iterrows():
-        diffs = {}
-        for name, (col, avg) in metrics.items():
-            if avg == 0:
-                diffs[name] = 0
+        pass_diffs = {}
+        for name, col in pass_metrics.items():
+            avg = pass_avgs[name]
+            if abs(avg) > 1e-9:
+                pass_diffs[name] = ((row[col] - avg) / abs(avg)) * 100
             else:
-                diffs[name] = ((row[col] - avg) / avg) * 100
+                pass_diffs[name] = 0.0
+        def_diffs = {}
+        for name, col in def_metrics.items():
+            avg = def_avgs[name]
+            if abs(avg) > 1e-9:
+                def_diffs[name] = ((row[col] - avg) / abs(avg)) * 100
+            else:
+                def_diffs[name] = 0.0
         if row['Grade'] >= mean_grade:
-            best_metric = max(diffs, key=diffs.get)
-            hover_texts.append(f"<br>Highlight: {best_metric} (+{diffs[best_metric]:.1f}%)")
+            best_pass = max(pass_diffs, key=pass_diffs.get)
+            p_val = pass_diffs[best_pass]
+            p_color = '#34d399'
+            p_sign = '+'
+            best_def = max(def_diffs, key=def_diffs.get)
+            d_val = def_diffs[best_def]
+            d_color = '#34d399'
+            d_sign = '+'
         else:
-            worst_metric = min(diffs, key=diffs.get)
-            hover_texts.append(f"<br>Issue: {worst_metric} ({diffs[worst_metric]:.1f}%)")
-    customdata = np.stack((df_scores["match"], hover_texts), axis=-1)
+            best_pass = min(pass_diffs, key=pass_diffs.get)
+            p_val = pass_diffs[best_pass]
+            p_color = '#f87171'
+            p_sign = ''
+            best_def = min(def_diffs, key=def_diffs.get)
+            d_val = def_diffs[best_def]
+            d_color = '#f87171'
+            d_sign = ''
+        hover_texts_pass.append(f"Passe: {best_pass} <span style='color:{p_color}'>{p_sign}{p_val:.1f}%</span>")
+        hover_texts_def.append(f"Defesa: {best_def} <span style='color:{d_color}'>{d_sign}{d_val:.1f}%</span>")
+
+    customdata = np.stack((df_scores["match"], hover_texts_pass, hover_texts_def), axis=-1)
+
     fig.add_trace(go.Scatter(
         x=x_labels, y=y_grade, customdata=customdata,
         mode='lines+markers',
@@ -1302,7 +1338,7 @@ def draw_grade_chart(df_scores):
         marker=dict(size=8, color=C_BLUE_DARK),
         fill='tozeroy', fillcolor=f'rgba(26, 86, 219, 0.05)',
         name="Combined Grade",
-        hovertemplate="%{customdata[0]}<br>Grade: %{y:.1f}<br>%{customdata[1]}"
+        hovertemplate="<span style='color:#ffd700'>%{customdata[0]}</span><br>Grade: %{y:.1f}<br>%{customdata[1]}<br>%{customdata[2]}"
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=y_pass_grade,
@@ -1329,7 +1365,7 @@ def draw_grade_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=400, margin=dict(l=20, r=20, t=40, b=20),
+        height=370, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(range=[40, 100], showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1359,7 +1395,7 @@ def draw_progressive_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1389,7 +1425,7 @@ def draw_final_third_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1419,7 +1455,7 @@ def draw_xt_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1449,7 +1485,7 @@ def draw_positive_impact_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1479,7 +1515,7 @@ def draw_defensive_duels_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1509,7 +1545,7 @@ def draw_defensive_interceptions_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1760,19 +1796,19 @@ with tab_dash:
         col_s1, col_s2, col_s3 = st.columns(3)
         if force_avg:
             with col_s1:
-                cmp_section_card("📋 Pass Overview", C_BLUE_PASTEL, [
-                    ("Total Passes", s_game["total_p90"], f"{s_avg['total_p90']:.2f}", f"{s_game['total_p90']:.2f}", f"{s_avg['total_p90']:.2f}"),
-                    ("Successful %", s_game["accuracy_pct"], s_avg["accuracy_pct"], f"{s_game['accuracy_pct']:.2f}%", f"{s_avg['accuracy_pct']:.2f}%"),
+                section_card("📋 Pass Overview", C_BLUE_PASTEL, [
+                    ("Total Passes", f"{s_game['total_p90']:.2f}"),
+                    ("Successful %", f"{s_game['accuracy_pct']:.2f}%"),
                 ])
             with col_s2:
-                cmp_section_card("📊 Advanced", C_GREEN_PASTEL, [
-                    ("Progressive", s_game["prog_p90"], f"{s_avg['prog_p90']:.2f}", f"{s_game['prog_p90']:.2f}", f"{s_avg['prog_p90']:.2f}"),
-                    ("Final Third", s_game["f3_p90"], f"{s_avg['f3_p90']:.2f}", f"{s_game['f3_p90']:.2f}", f"{s_avg['f3_p90']:.2f}"),
+                section_card("📊 Advanced", C_GREEN_PASTEL, [
+                    ("Progressive", f"{s_game['prog_p90']:.2f}"),
+                    ("Final Third", f"{s_game['f3_p90']:.2f}"),
                 ])
             with col_s3:
-                cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
-                    ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"], f"{s_game['pos_pct']:.2f}%", f"{s_avg['pos_pct']:.2f}%"),
-                    ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"], f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}"),
+                section_card("⚡ Impact", C_AMBER_PASTEL, [
+                    ("% Positive Impact", f"{s_game['pos_pct']:.2f}%"),
+                    ("Pass Impact Value", f"{s_game['xt_p90']:.3f}"),
                 ])
         else:
             with col_s1:
@@ -1856,19 +1892,19 @@ with tab_dash:
         col_ds1, col_ds2, col_ds3 = st.columns(3)
         if force_avg_def:
             with col_ds1:
-                cmp_section_card("🛡️ General", C_BLUE_PASTEL, [
-                    ("Defensive Actions", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.2f}", f"{d_game['total_actions_p90']:.2f}", f"{d_avg['total_actions_p90']:.2f}"),
-                    ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.2f}", f"{d_game['actions_attacking_p90']:.2f}", f"{d_avg['actions_attacking_p90']:.2f}"),
+                section_card("🛡️ General", C_BLUE_PASTEL, [
+                    ("Defensive Actions", f"{d_game['total_actions_p90']:.2f}"),
+                    ("Actions in Opp. Field", f"{d_game['actions_attacking_p90']:.2f}"),
                 ])
             with col_ds2:
-                cmp_section_card("⚔️ Duels", C_GREEN_PASTEL, [
-                    ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.2f}", f"{d_game['duels_p90']:.2f}", f"{d_avg['duels_p90']:.2f}"),
-                    ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"], f"{d_game['duels_won_pct']:.2f}%", f"{d_avg['duels_won_pct']:.2f}%"),
+                section_card("⚔️ Duels", C_GREEN_PASTEL, [
+                    ("Defensive Duels", f"{d_game['duels_p90']:.2f}"),
+                    ("% Duels Won", f"{d_game['duels_won_pct']:.2f}%"),
                 ])
             with col_ds3:
-                cmp_section_card("👁️ Interceptions", C_AMBER_PASTEL, [
-                    ("Interceptions", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.2f}", f"{d_game['interceptions_p90']:.2f}", f"{d_avg['interceptions_p90']:.2f}"),
-                    ("Interceptions in Opp Field", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.2f}", f"{d_game['interceptions_attacking_p90']:.2f}", f"{d_avg['interceptions_attacking_p90']:.2f}"),
+                section_card("👁️ Interceptions", C_AMBER_PASTEL, [
+                    ("Interceptions", f"{d_game['interceptions_p90']:.2f}"),
+                    ("Interceptions in Opp Field", f"{d_game['interceptions_attacking_p90']:.2f}"),
                 ])
         else:
             with col_ds1:
