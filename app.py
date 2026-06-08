@@ -497,6 +497,11 @@ def apply_date_mapping(name: str) -> str:
     return name
 
 def get_match_minutes(match_name: str) -> float:
+    if match_name == "All Matches":
+        total = 0.0
+        for k in dfs_by_match:
+            total += get_match_minutes(k)
+        return total
     name_lower = match_name.lower()
     if "connecticut" in name_lower:
         return 60.0
@@ -750,20 +755,17 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
     df_scores = pd.DataFrame(records)
     if df_scores.empty:
         return df_scores
-
     def normalize_fixed(series, val_min, val_max):
         clipped_series = series.clip(lower=val_min, upper=val_max)
         if val_max == val_min:
             return pd.Series([70.0] * len(series))
         return 40 + ((clipped_series - val_min) / (val_max - val_min)) * 60
-
     df_scores['xt_norm'] = normalize_fixed(df_scores['xt_p90'], val_min=0.05, val_max=0.45)
     df_scores['prog_norm'] = normalize_fixed(df_scores['prog_p90'], val_min=1.0, val_max=15.0)
     df_scores['f3_norm'] = normalize_fixed(df_scores['f3_p90'], val_min=1.0, val_max=15.0)
     df_scores['pos_pct_norm'] = normalize_fixed(df_scores['pos_pct'], val_min=25.0, val_max=75.0)
     df_scores['total_p90_norm'] = normalize_fixed(df_scores['total_p90'], val_min=10.0, val_max=85.0)
     df_scores['neg_xt_norm'] = normalize_fixed(df_scores['neg_xt_p90'], val_min=-0.15, val_max=0.00)
-
     df_scores['Grade'] = (
         df_scores['xt_norm'] * 0.30 +
         df_scores['prog_norm'] * 0.20 +
@@ -772,7 +774,6 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         df_scores['total_p90_norm'] * 0.10 +
         df_scores['neg_xt_norm'] * 0.10
     )
-
     if defensive_dfs_dict is not None:
         def_bonus_list = []
         duels_p90_list = []
@@ -828,29 +829,23 @@ def compute_match_scores(dfs_dict, defensive_dfs_dict=None):
         df_scores['interceptions_p90'] = 0.0
         df_scores['duels_won_p90'] = 0.0
         df_scores['int_xt_avg'] = 0.0
-
     df_scores['pass_grade'] = df_scores['Grade'].round(1).copy()
-
     def _norm_def(s, lo, hi):
         clipped = s.clip(lower=lo, upper=hi)
         if hi <= lo:
             return pd.Series([70.0] * len(s))
         return 40 + ((clipped - lo) / (hi - lo)) * 60
-
     df_scores['duels_won_pct_norm'] = _norm_def(df_scores['duels_won_pct'], 0, 100)
     df_scores['int_xt_norm'] = _norm_def(df_scores['int_xt_avg'], 0, 0.30)
     df_scores['duels_won_p90_norm'] = _norm_def(df_scores['duels_won_p90'], 0, 15)
     df_scores['interceptions_p90_norm'] = _norm_def(df_scores['interceptions_p90'], 0, 15)
-
     df_scores['def_grade'] = (
         df_scores['duels_won_pct_norm'] * 0.35 +
         df_scores['int_xt_norm'] * 0.25 +
         df_scores['duels_won_p90_norm'] * 0.20 +
         df_scores['interceptions_p90_norm'] * 0.20
     ).round(1)
-
     df_scores['Grade'] = (df_scores['pass_grade'] * 0.75 + df_scores['def_grade'] * 0.25).round(1)
-
     return df_scores
 
 def compute_defensive_stats(df: pd.DataFrame, match_name: str) -> dict:
@@ -946,49 +941,50 @@ def _arrow_html(val_game: float, val_avg: float) -> str:
         return ""
     if val_game > val_avg:
         pct = _safe_pct_diff(val_game, val_avg)
-        return f'<span style="color:#10b981">↑ {pct:.0f}%</span>'
+        return f'↑ {pct:.0f}%'
     else:
         pct = _safe_pct_diff(val_avg, val_game)
-        return f'<span style="color:#E07070">↓ {pct:.0f}%</span>'
+        return f'↓ {pct:.0f}%'
 
 def section_card(title, border_color, items):
     bg = _hex_to_rgba(border_color, 0.85)
     bd = _hex_to_rgba(border_color, 0.5)
-    html = f'<div style="background:#1e1e32;border:1px solid {bd};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
-    html += f'<div style="background:{bg};padding:10px 16px;font-size:15px;font-weight:600;color:#fff;">{title}</div>'
+    html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:12px;margin-bottom:8px">'
+    html += f'<div style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:8px">{title}</div>'
     for item in items:
         label = item[0]
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
-        html += f'<div style="padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.04);">'
-        html += f'<div style="color:#c8c8d0;font-size:13px;">{label}</div>'
-        html += f'<div style="color:#ffffff;font-size:20px;font-weight:600;">{value}</div>'
+        tooltip = item[3] if len(item) > 3 else ""
+        label_attr = f' title="{tooltip}" style="font-size:12px;color:#cccccc;cursor:help;border-bottom:1px dotted #666666"' if tooltip else f' style="font-size:12px;color:#cccccc"'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
+        html += f'<div{label_attr}>{label}</div>'
+        html += f'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#ffffff">{value}</div>'
         if sub:
-            html += f'<div style="color:#7a7a90;font-size:12px;margin-top:2px;">{sub}</div>'
-        html += '</div>'
+            html += f'<div style="font-size:10px;color:#999999">{sub}</div>'
+        html += '</div></div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 def cmp_section_card(title, border_color, items):
     bg = _hex_to_rgba(border_color, 0.85)
     bd = _hex_to_rgba(border_color, 0.5)
-    html = f'<div style="background:#1e1e32;border:1px solid {bd};border-radius:10px;overflow:hidden;margin-bottom:10px;">'
-    html += f'<div style="background:{bg};padding:10px 16px;font-size:15px;font-weight:600;color:#fff;">{title}</div>'
+    html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:12px;margin-bottom:8px">'
+    html += f'<div style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:8px">{title}</div>'
     for item in items:
         label = item[0]
         val_game = item[1]
         val_avg = item[2]
         disp_game = item[3] if len(item) > 3 else str(val_game)
         disp_avg = item[4] if len(item) > 4 else str(val_avg)
+        tooltip = item[5] if len(item) > 5 else ""
         arrow = _arrow_html(float(val_game), float(val_avg))
-        html += f'<div style="padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.04);">'
-        html += f'<div style="color:#c8c8d0;font-size:13px;">{label}</div>'
-        html += f'<div style="display:flex;align-items:baseline;gap:6px;">'
-        html += f'<span style="color:#ffffff;font-size:20px;font-weight:600;">{disp_game}</span>'
-        html += f'<span style="font-size:13px;font-weight:500;">{arrow}</span>'
-        html += f'</div>'
-        html += f'<div style="color:#7a7a90;font-size:12px;margin-top:2px;">AVG: {disp_avg}</div>'
-        html += '</div>'
+        label_attr = f' title="{tooltip}" style="font-size:12px;color:#cccccc;cursor:help;border-bottom:1px dotted #666666"' if tooltip else f' style="font-size:12px;color:#cccccc"'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
+        html += f'<div{label_attr}>{label}</div>'
+        html += f'<div style="text-align:right"><div>{disp_game}{arrow}</div>'
+        html += f'<div style="font-size:10px;color:#999999">AVG: {disp_avg}</div>'
+        html += '</div></div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
@@ -1275,8 +1271,7 @@ def draw_grade_chart(df_scores):
             hover_texts.append(f"<br>Issue: {worst_metric} ({diffs[worst_metric]:.1f}%)")
     customdata = np.stack((df_scores["match"], hover_texts), axis=-1)
     fig.add_trace(go.Scatter(
-        x=x_labels, y=y_grade,
-        customdata=customdata,
+        x=x_labels, y=y_grade, customdata=customdata,
         mode='lines+markers',
         line=dict(color=C_BLUE_DARK, width=3, shape='spline'),
         marker=dict(size=8, color=C_BLUE_DARK),
@@ -1289,7 +1284,8 @@ def draw_grade_chart(df_scores):
         mode='lines+markers',
         line=dict(color="#10b981", width=1, dash='dot'),
         marker=dict(size=5, color="#10b981", symbol='circle-open'),
-        opacity=0.15, name="Pass Grade (only)",
+        opacity=0.15,
+        name="Pass Grade (only)",
         hovertemplate="%{x}<br>Pass Grade: %{y:.1f}"
     ))
     fig.add_trace(go.Scatter(
@@ -1297,7 +1293,8 @@ def draw_grade_chart(df_scores):
         mode='lines+markers',
         line=dict(color="#a78bfa", width=1, dash='dot'),
         marker=dict(size=5, color="#a78bfa", symbol='circle-open'),
-        opacity=0.15, name="Defensive Grade",
+        opacity=0.15,
+        name="Defensive Grade",
         hovertemplate="%{x}<br>Defensive Grade: %{y:.1f}"
     ))
     fig.add_trace(go.Scatter(
@@ -1387,8 +1384,8 @@ def draw_xt_chart(df_scores):
         line=dict(color="#f59e0b", width=3, shape='spline'),
         marker=dict(size=8, color="#f59e0b"),
         fill='tozeroy', fillcolor='rgba(245, 158, 11, 0.05)',
-        name="Σ Pass Impact",
-        hovertemplate="%{customdata}<br>Σ Pass Impact: %{y:.2f}"
+        name="Pass Impact Value",
+        hovertemplate="%{customdata}<br>Pass Impact Value: %{y:.2f}"
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_xt] * len(x_labels),
@@ -1401,7 +1398,7 @@ def draw_xt_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Σ Pass Impact", font=dict(size=14, color="#a0a0b5"))
+        title=dict(text="Pass Impact Value", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
@@ -1496,12 +1493,11 @@ img_path = "Captura de tela 2026-06-02 154425.png"
 if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
 st.sidebar.markdown("---")
-
 num_matches = len(dfs_by_match)
 all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 
 # TABS & LAYOUT
-tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Evolution"])
+tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Developement"])
 
 with tab_graf:
     st.markdown("### Overall Performance Summary")
@@ -1533,57 +1529,59 @@ with tab_graf:
             ])
         with col_s3:
             section_card("⚡ Impact", C_AMBER_PASTEL, [
-                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}"),
-                ("Σ Pass Impact", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}"),
+                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}",
+                 "Passes que geraram impacto positivo pela posição do campo em que terminaram"),
+                ("Pass Impact Value", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}",
+                 "Cálculo usado para definir o valor do impacto dos passes com base na progressão da ameaça (xT)"),
             ])
 
         st.markdown("", unsafe_allow_html=True)
 
-    defensive_num_matches = len(defensive_dfs_by_match)
-    defensive_all_stats = [compute_defensive_stats(defensive_dfs_by_match[m], m) for m in defensive_dfs_by_match]
-    if defensive_num_matches > 0:
-        total_def_actions_all = sum(s['total_actions'] for s in defensive_all_stats)
-        total_def_att_all = sum(s['actions_attacking'] for s in defensive_all_stats)
-        total_duels_all = sum(s['total_duels'] for s in defensive_all_stats)
-        total_duels_won_all = sum(s['duels_won'] for s in defensive_all_stats)
-        total_interceptions_all = sum(s['interceptions'] for s in defensive_all_stats)
-        total_int_att_all = sum(s['interceptions_attacking'] for s in defensive_all_stats)
-        avg_def_actions_p90 = sum(s['total_actions_p90'] for s in defensive_all_stats) / defensive_num_matches
-        avg_def_att_p90 = sum(s['actions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
-        avg_duels_p90 = sum(s['duels_p90'] for s in defensive_all_stats) / defensive_num_matches
-        avg_duels_won_pct = sum(s['duels_won_pct'] for s in defensive_all_stats) / defensive_num_matches
-        avg_interceptions_p90 = sum(s['interceptions_p90'] for s in defensive_all_stats) / defensive_num_matches
-        avg_int_att_p90 = sum(s['interceptions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
+        defensive_num_matches = len(defensive_dfs_by_match)
+        defensive_all_stats = [compute_defensive_stats(defensive_dfs_by_match[m], m) for m in defensive_dfs_by_match]
+        if defensive_num_matches > 0:
+            total_def_actions_all = sum(s['total_actions'] for s in defensive_all_stats)
+            total_def_att_all = sum(s['actions_attacking'] for s in defensive_all_stats)
+            total_duels_all = sum(s['total_duels'] for s in defensive_all_stats)
+            total_duels_won_all = sum(s['duels_won'] for s in defensive_all_stats)
+            total_interceptions_all = sum(s['interceptions'] for s in defensive_all_stats)
+            total_int_att_all = sum(s['interceptions_attacking'] for s in defensive_all_stats)
+            avg_def_actions_p90 = sum(s['total_actions_p90'] for s in defensive_all_stats) / defensive_num_matches
+            avg_def_att_p90 = sum(s['actions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
+            avg_duels_p90 = sum(s['duels_p90'] for s in defensive_all_stats) / defensive_num_matches
+            avg_duels_won_pct = sum(s['duels_won_pct'] for s in defensive_all_stats) / defensive_num_matches
+            avg_interceptions_p90 = sum(s['interceptions_p90'] for s in defensive_all_stats) / defensive_num_matches
+            avg_int_att_p90 = sum(s['interceptions_attacking_p90'] for s in defensive_all_stats) / defensive_num_matches
 
-        st.markdown("### Defensive Actions")
-        col_d1, col_d2, col_d3 = st.columns(3)
-        with col_d1:
-            section_card("🛡️ General", C_BLUE_PASTEL, [
-                ("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}"),
-                ("Actions in Opp. Field p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}"),
-            ])
-        with col_d2:
-            section_card("⚔️ Duels", C_GREEN_PASTEL, [
-                ("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}"),
-                ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
-            ])
-        with col_d3:
-            section_card("👁️ Interceptions", C_AMBER_PASTEL, [
-                ("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}"),
-                ("Interceptions in Opp Field p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
-            ])
+            st.markdown("### Defensive Actions")
+            col_d1, col_d2, col_d3 = st.columns(3)
+            with col_d1:
+                section_card("🛡️ General", C_BLUE_PASTEL, [
+                    ("Defensive Actions p90", f"{avg_def_actions_p90:.1f}", f"Total: {total_def_actions_all}"),
+                    ("Actions in Opp. Field p90", f"{avg_def_att_p90:.1f}", f"Total: {total_def_att_all}"),
+                ])
+            with col_d2:
+                section_card("⚔️ Duels", C_GREEN_PASTEL, [
+                    ("Defensive Duels p90", f"{avg_duels_p90:.1f}", f"Total: {total_duels_all}"),
+                    ("% Duels Won", f"{avg_duels_won_pct:.1f}%", f"({total_duels_won_all}/{total_duels_all})"),
+                ])
+            with col_d3:
+                section_card("👁️ Interceptions", C_AMBER_PASTEL, [
+                    ("Interceptions p90", f"{avg_interceptions_p90:.1f}", f"Total: {total_interceptions_all}"),
+                    ("Interceptions in Opp Field p90", f"{avg_int_att_p90:.1f}", f"Total: {total_int_att_all}"),
+                ])
 
-        st.markdown(f'<div style="text-align:right;color:#6b6b80;font-size:12px;margin-top:8px;">{num_matches} matches collected</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center;font-size:12px;color:#666666;margin-top:12px">{num_matches} matches collected</div>', unsafe_allow_html=True)
         st.markdown("", unsafe_allow_html=True)
 
-    df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match)
-    if not df_scores.empty:
-        st.markdown("### Grade per Match")
-        fig_scores = draw_grade_chart(df_scores)
-        st.plotly_chart(fig_scores, use_container_width=True)
+        df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match)
+        if not df_scores.empty:
+            st.markdown("### Grade per Match")
+            fig_scores = draw_grade_chart(df_scores)
+            st.plotly_chart(fig_scores, use_container_width=True)
 
-        with st.expander("How is the Grade calculated?"):
-            st.markdown("""
+            with st.expander("How is the Grade calculated?"):
+                st.markdown("""
 **Grade**
 
 **Pass Grade**
@@ -1601,26 +1599,26 @@ with tab_graf:
 - **Interceptions (Count):** Rewards volume of interceptions.
 """)
 
-        st.markdown("", unsafe_allow_html=True)
-        st.markdown("### Stats")
-        fig_total = draw_total_passes_chart(df_scores)
-        st.plotly_chart(fig_total, use_container_width=True)
-        fig_prog = draw_progressive_chart(df_scores)
-        st.plotly_chart(fig_prog, use_container_width=True)
-        fig_f3 = draw_final_third_chart(df_scores)
-        st.plotly_chart(fig_f3, use_container_width=True)
-        fig_xt = draw_xt_chart(df_scores)
-        st.plotly_chart(fig_xt, use_container_width=True)
+            st.markdown("", unsafe_allow_html=True)
+            st.markdown("### Stats")
+            fig_total = draw_total_passes_chart(df_scores)
+            st.plotly_chart(fig_total, use_container_width=True)
+            fig_prog = draw_progressive_chart(df_scores)
+            st.plotly_chart(fig_prog, use_container_width=True)
+            fig_f3 = draw_final_third_chart(df_scores)
+            st.plotly_chart(fig_f3, use_container_width=True)
+            fig_xt = draw_xt_chart(df_scores)
+            st.plotly_chart(fig_xt, use_container_width=True)
 
-        df_def_scores = compute_defensive_match_scores(defensive_dfs_by_match)
-        if not df_def_scores.empty:
-            st.markdown("### Defensive Actions")
-            fig_duels = draw_defensive_duels_chart(df_def_scores)
-            st.plotly_chart(fig_duels, use_container_width=True)
-            fig_interceptions = draw_defensive_interceptions_chart(df_def_scores)
-            st.plotly_chart(fig_interceptions, use_container_width=True)
-        else:
-            st.warning("Not enough data to generate charts.")
+            df_def_scores = compute_defensive_match_scores(defensive_dfs_by_match)
+            if not df_def_scores.empty:
+                st.markdown("### Defensive Actions")
+                fig_duels = draw_defensive_duels_chart(df_def_scores)
+                st.plotly_chart(fig_duels, use_container_width=True)
+                fig_interceptions = draw_defensive_interceptions_chart(df_def_scores)
+                st.plotly_chart(fig_interceptions, use_container_width=True)
+            else:
+                st.warning("Not enough data to generate charts.")
 
 with tab_dash:
     sub_tab_passes, sub_tab_def = st.tabs(["Passes", "Defensive Actions"])
@@ -1629,13 +1627,21 @@ with tab_dash:
         st.markdown("### Match Filters")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            selected_match = st.selectbox("Select Match", options=list(dfs_by_match.keys()), index=0, key="pass_match")
+            pass_match_options = ["All Matches"] + list(dfs_by_match.keys())
+            selected_match = st.selectbox("Select Match", options=pass_match_options, index=0, key="pass_match")
         with col_f2:
             pass_filter = st.radio(
                 "Pass Type",
                 ["All", "Successful", "Unsuccessful", "Progressive", "Final Third"],
                 index=0, horizontal=True, key="pass_filter"
             )
+
+        if selected_match == "All Matches":
+            df_game_filtered = pd.concat(dfs_by_match.values(), ignore_index=True)
+            match_name_for_stats = "All Matches"
+        else:
+            df_game_filtered = dfs_by_match[selected_match].copy()
+            match_name_for_stats = selected_match
 
         def apply_filter(df):
             if pass_filter == "Successful":
@@ -1648,8 +1654,8 @@ with tab_dash:
                 return df[(df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)].copy()
             return df.copy()
 
-        df_game = apply_filter(dfs_by_match[selected_match].copy())
-        s_game = compute_stats(df_game, selected_match)
+        df_game = apply_filter(df_game_filtered)
+        s_game = compute_stats(df_game, match_name_for_stats)
         s_avg = {}
         if num_matches > 0:
             for k in all_match_stats[0].keys():
@@ -1667,13 +1673,13 @@ with tab_dash:
 
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
-            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Pass Map</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Pass Map</div>', unsafe_allow_html=True)
             st.image(img_pm_game, use_container_width=True)
         with col_m2:
-            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Zone Heatmap</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Zone Heatmap</div>', unsafe_allow_html=True)
             st.image(img_ht_game, use_container_width=True)
         with col_m3:
-            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Top 5 Pass Impact</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Top 5 Pass Impact</div>', unsafe_allow_html=True)
             st.image(img_xt_game, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
@@ -1693,16 +1699,36 @@ with tab_dash:
             cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
                 ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
                  f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%"),
-                ("Σ Pass Impact", s_game["xt_p90"], s_avg["xt_p90"],
+                ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"],
                  f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}"),
             ])
 
     with sub_tab_def:
         st.markdown("### Match Filter")
-        selected_def_match = st.selectbox("Select Match", options=list(defensive_dfs_by_match.keys()), index=0, key="def_match")
-        df_def_game = defensive_dfs_by_match[selected_def_match].copy()
-        d_game = compute_defensive_stats(df_def_game, selected_def_match)
+        col_df1, col_df2 = st.columns(2)
+        with col_df1:
+            def_match_options = ["All Matches"] + list(defensive_dfs_by_match.keys())
+            selected_def_match = st.selectbox("Select Match", options=def_match_options, index=0, key="def_match")
+        with col_df2:
+            def_type_filter = st.radio("Filter Type", ["All", "Duels Only", "Interceptions Only"],
+                                       horizontal=True, key="def_type_filter")
 
+        if selected_def_match == "All Matches":
+            df_def_game_raw = pd.concat(defensive_dfs_by_match.values(), ignore_index=True)
+            def_match_name_for_stats = "All Matches"
+        else:
+            df_def_game_raw = defensive_dfs_by_match[selected_def_match].copy()
+            def_match_name_for_stats = selected_def_match
+
+        # Apply type filter
+        if def_type_filter == "Duels Only":
+            df_def_game = df_def_game_raw[df_def_game_raw["is_duel"]].copy()
+        elif def_type_filter == "Interceptions Only":
+            df_def_game = df_def_game_raw[df_def_game_raw["is_interception"]].copy()
+        else:
+            df_def_game = df_def_game_raw.copy()
+
+        d_game = compute_defensive_stats(df_def_game, def_match_name_for_stats)
         def_all = [compute_defensive_stats(defensive_dfs_by_match[m], m) for m in defensive_dfs_by_match]
         d_avg = {}
         if len(def_all) > 0:
@@ -1721,32 +1747,32 @@ with tab_dash:
 
         col_dm1, col_dm2, col_dm3 = st.columns(3)
         with col_dm1:
-            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Defensive Actions Map</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Actions Map</div>', unsafe_allow_html=True)
             st.image(img_def_map, use_container_width=True)
         with col_dm2:
-            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">Defensive Corridor Heatmap</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Corridor Heatmap</div>', unsafe_allow_html=True)
             st.image(img_def_hm, use_container_width=True)
         with col_dm3:
-            st.markdown('<div style="color:#ffffff;font-size:14px;font-weight:500;margin-bottom:4px;">xT Threat Map</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">xT Threat Map</div>', unsafe_allow_html=True)
             st.image(img_def_xt, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_ds1, col_ds2, col_ds3 = st.columns(3)
         with col_ds1:
             cmp_section_card("🛡️ General", C_BLUE_PASTEL, [
-                ("Defensive Actions p90", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}"),
-                ("Actions in Opp. Field p90", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
+                ("Defensive Actions", d_game["total_actions_p90"], f"{d_avg['total_actions_p90']:.1f}"),
+                ("Actions in Opp. Field", d_game["actions_attacking_p90"], f"{d_avg['actions_attacking_p90']:.1f}"),
             ])
         with col_ds2:
             cmp_section_card("⚔️ Duels", C_GREEN_PASTEL, [
-                ("Defensive Duels p90", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}"),
+                ("Defensive Duels", d_game["duels_p90"], f"{d_avg['duels_p90']:.1f}"),
                 ("% Duels Won", d_game["duels_won_pct"], d_avg["duels_won_pct"],
                  f"{d_game['duels_won_pct']:.1f}%", f"{d_avg['duels_won_pct']:.1f}%"),
             ])
         with col_ds3:
             cmp_section_card("👁️ Interceptions", C_AMBER_PASTEL, [
-                ("Interceptions p90", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}"),
-                ("Interceptions in Opp Field p90", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
+                ("Interceptions", d_game["interceptions_p90"], f"{d_avg['interceptions_p90']:.1f}"),
+                ("Interceptions in Opp Field", d_game["interceptions_attacking_p90"], f"{d_avg['interceptions_attacking_p90']:.1f}"),
             ])
 
 with tab_evo:
@@ -1755,7 +1781,6 @@ with tab_evo:
     with sub_tab_evo_passes:
         st.markdown("### First 9 vs Last 9 Matches")
         st.markdown("Comparing the average passing performance between the first 9 and the last 9 matches to analyze player evolution.")
-
         df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match)
         if len(df_scores) > 0:
             if len(df_scores) < 18:
@@ -1801,10 +1826,8 @@ with tab_evo:
     with sub_tab_evo_def:
         st.markdown("### First 9 vs Last 9 Matches")
         st.markdown("Comparing the average defensive performance between the first 9 and the last 9 matches.")
-
         df_scores = compute_match_scores(dfs_by_match, defensive_dfs_by_match)
         df_def_evo = compute_defensive_evolution_df(defensive_dfs_by_match, df_scores)
-
         if len(df_def_evo) > 0:
             if len(df_def_evo) < 18:
                 st.info(f"Note: Only {len(df_def_evo)} matches available. The comparison will overlap or use available data.")
