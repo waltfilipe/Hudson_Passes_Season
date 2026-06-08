@@ -947,40 +947,52 @@ def _arrow_html(val_game: float, val_avg: float) -> str:
         return f'↓ {pct:.0f}%'
 
 def section_card(title, border_color, items):
-    bg = _hex_to_rgba(border_color, 0.85)
-    bd = _hex_to_rgba(border_color, 0.5)
-    html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:12px;margin-bottom:8px">'
-    html += f'<div style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:8px">{title}</div>'
+    bg = _hex_to_rgba(border_color, 0.60)
+    bd = _hex_to_rgba(border_color, 0.30)
+    html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
+    html += f'<div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
     for item in items:
         label = item[0]
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
-        html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
-        html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
-        html += f'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#ffffff">{value}</div>'
+        tooltip = item[3] if len(item) > 3 else ""
+        html += f'<div style="padding:5px 0">'
+        if tooltip:
+            label_html = f'<span style="cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
+            label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:5px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
+            html += f'<div style="font-size:12px;color:#cccccc;margin-bottom:3px">{label_html}</div>'
+        else:
+            html += f'<div style="font-size:12px;color:#cccccc;margin-bottom:3px">{label}</div>'
+        html += f'<div style="font-size:18px;font-weight:700;color:#ffffff;line-height:1.3">{value}</div>'
         if sub:
-            html += f'<div style="font-size:10px;color:#999999">{sub}</div>'
-        html += '</div></div>'
+            html += f'<div style="font-size:11px;color:#ffffff;opacity:0.65;margin-top:1px">{sub}</div>'
+        html += '</div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 def cmp_section_card(title, border_color, items):
-    bg = _hex_to_rgba(border_color, 0.85)
-    bd = _hex_to_rgba(border_color, 0.5)
-    html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:12px;margin-bottom:8px">'
-    html += f'<div style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:8px">{title}</div>'
+    bg = _hex_to_rgba(border_color, 0.60)
+    bd = _hex_to_rgba(border_color, 0.30)
+    html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
+    html += f'<div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
     for item in items:
         label = item[0]
         val_game = item[1]
         val_avg = item[2]
         disp_game = item[3] if len(item) > 3 else str(val_game)
         disp_avg = item[4] if len(item) > 4 else str(val_avg)
+        tooltip = item[5] if len(item) > 5 else ""
         arrow = _arrow_html(float(val_game), float(val_avg))
-        html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
-        html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
-        html += f'<div style="text-align:right"><div>{disp_game}{arrow}</div>'
-        html += f'<div style="font-size:10px;color:#999999">AVG: {disp_avg}</div>'
-        html += '</div></div>'
+        html += f'<div style="padding:5px 0">'
+        if tooltip:
+            label_html = f'<span style="cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15)" title="{tooltip}">{label}</span>'
+            label_html += f'<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;color:#888;background:rgba(0,0,0,0.25);margin-left:5px;cursor:help;vertical-align:middle" title="{tooltip}">?</span>'
+            html += f'<div style="font-size:12px;color:#cccccc;margin-bottom:3px">{label_html}</div>'
+        else:
+            html += f'<div style="font-size:12px;color:#cccccc;margin-bottom:3px">{label}</div>'
+        html += f'<div style="font-size:18px;font-weight:700;color:#ffffff;line-height:1.3">{disp_game}{arrow}</div>'
+        html += f'<div style="font-size:11px;color:#ffffff;opacity:0.65;margin-top:1px">AVG: {disp_avg}</div>'
+        html += '</div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
@@ -1536,8 +1548,10 @@ with tab_graf:
             ])
         with col_s3:
             section_card("⚡ Impact", C_AMBER_PASTEL, [
-                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}"),
-                ("Pass Impact Value", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}"),
+                ("% Positive Impact", f"{avg_pos_pct:.1f}%", f"Total: {total_pos_all}",
+                 "Passes que geraram impacto positivo pela posição do campo em que terminaram"),
+                ("Pass Impact Value", f"{avg_xt_p90:.3f}", f"Total: {total_xt_all:.3f}",
+                 "Cálculo usado para definir o valor do impacto dos passes com base na progressão da ameaça (xT)"),
             ])
 
         st.markdown("", unsafe_allow_html=True)
@@ -1703,9 +1717,11 @@ with tab_dash:
         with col_s3:
             cmp_section_card("⚡ Impact", C_AMBER_PASTEL, [
                 ("% Positive Impact", s_game["pos_pct"], s_avg["pos_pct"],
-                 f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%"),
+                 f"{s_game['pos_pct']:.1f}%", f"{s_avg['pos_pct']:.1f}%",
+                 "Passes que geraram impacto positivo pela posição do campo em que terminaram"),
                 ("Pass Impact Value", s_game["xt_p90"], s_avg["xt_p90"],
-                 f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}"),
+                 f"{s_game['xt_p90']:.3f}", f"{s_avg['xt_p90']:.3f}",
+                 "Cálculo usado para definir o valor do impacto dos passes com base na progressão da ameaça (xT)"),
             ])
 
     with sub_tab_def:
