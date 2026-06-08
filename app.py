@@ -57,6 +57,10 @@ NORM_TOP10 = Normalize(vmin=0.05, vmax=0.40)
 NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
+PENALTY_AREA_X = 18.0
+FUNNEL_X_EXTEND = 28.0
+PENALTY_AREA_Y_MIN = 18.0
+PENALTY_AREA_Y_MAX = 62.0
 
 def _hex_to_rgba(hex_color, alpha=1.0):
     if hex_color.startswith('#'):
@@ -129,6 +133,10 @@ def xt_value(x, y):
     ix = int(np.clip((x / FIELD_X) * NX_XT, 0, NX_XT - 1))
     iy = int(np.clip((y / FIELD_Y) * NY_XT, 0, NY_XT - 1))
     return float(XT_GRID[iy, ix])
+
+def is_in_funnel_zone(x, y):
+    """Check if a defensive action is in the penalty area + 10m extended zone."""
+    return x <= FUNNEL_X_EXTEND and PENALTY_AREA_Y_MIN <= y <= PENALTY_AREA_Y_MAX
 
 # BASE PASSES
 BASE_MATCHES_DATA = {
@@ -627,6 +635,7 @@ for match_name, events in DEFENSIVE_MATCHES_DATA.items():
     df_def["is_duel_lost"] = df_def["type"] == "DUEL_LOST"
     df_def["is_duel"] = df_def["is_duel_won"] | df_def["is_duel_lost"]
     df_def["is_interception"] = df_def["type"] == "INTERCEPTION"
+    df_def["in_funnel"] = df_def.apply(lambda r: is_in_funnel_zone(r["x"], r["y"]), axis=1)
     defensive_dfs_by_match[match_name] = df_def
 
 # STATS & SCORES
@@ -863,6 +872,7 @@ def compute_defensive_stats(df: pd.DataFrame, match_name: str) -> dict:
     attacking_half = df[df["is_attacking_half"]]
     actions_attacking = len(attacking_half)
     interceptions_attacking = int(attacking_half["is_interception"].sum())
+    funnel_actions = int(df["in_funnel"].sum())
     return {
         "total_actions": total_actions,
         "total_actions_p90": round(total_actions * p90_factor, 1),
@@ -876,6 +886,8 @@ def compute_defensive_stats(df: pd.DataFrame, match_name: str) -> dict:
         "interceptions_p90": round(interceptions * p90_factor, 1),
         "interceptions_attacking": interceptions_attacking,
         "interceptions_attacking_p90": round(interceptions_attacking * p90_factor, 1),
+        "funnel_actions": funnel_actions,
+        "funnel_actions_p90": round(funnel_actions * p90_factor, 1),
     }
 
 def compute_defensive_match_scores(dfs_dict):
@@ -887,10 +899,12 @@ def compute_defensive_match_scores(dfs_dict):
         duels_lost = int(df_m["is_duel_lost"].sum())
         total_duels = duels_won + duels_lost
         interceptions = int(df_m["is_interception"].sum())
+        funnel_count = int(df_m["in_funnel"].sum())
         records.append({
             'match': m_name,
             'duels_p90': round(total_duels * p90, 1),
             'interceptions_p90': round(interceptions * p90, 1),
+            'funnel_p90': round(funnel_count * p90, 1),
         })
     return pd.DataFrame(records)
 
@@ -912,6 +926,7 @@ def compute_defensive_evolution_df(dfs_dict, df_scores=None):
             int_xt_avg = float(np.mean(int_xt_vals)) if int_xt_vals else 0
         else:
             int_xt_avg = 0
+        funnel_count = int(df_m["in_funnel"].sum())
         grade = None
         if df_scores is not None and 'Grade' in df_scores.columns and 'match' in df_scores.columns:
             team = m_name.split('(')[0].strip()
@@ -927,6 +942,7 @@ def compute_defensive_evolution_df(dfs_dict, df_scores=None):
             'duels_won_pct': round(duels_won_pct, 1),
             'actions_attacking_p90': round(actions_attacking * p90, 1),
             'int_xt_avg': round(int_xt_avg, 3),
+            'funnel_actions_p90': round(funnel_count * p90, 1),
             'grade': round(grade, 1) if grade is not None else None,
         })
     return pd.DataFrame(records)
@@ -1174,6 +1190,40 @@ def draw_defensive_map(df):
     _attack_arrow(fig)
     return _save_fig(fig), fig
 
+def draw_funnel_protection_map(df):
+    """Map showing defensive actions: golden stars inside funnel zone, faded white outside."""
+    fig, ax, pitch = _base_pitch()
+    funnel_rect = Rectangle(
+        (0, PENALTY_AREA_Y_MIN), FUNNEL_X_EXTEND, PENALTY_AREA_Y_MAX - PENALTY_AREA_Y_MIN,
+        facecolor="none", edgecolor="#ffd700", lw=2.0, linestyle="--", alpha=0.8, zorder=2
+    )
+    ax.add_patch(funnel_rect)
+    ax.text(FUNNEL_X_EXTEND / 2, PENALTY_AREA_Y_MAX + 2, "Funnel Zone",
+            ha="center", va="bottom", color="#ffd700", fontsize=8, fontweight="600", alpha=0.8, zorder=2)
+    for _, row in df.iterrows():
+        x, y = float(row["x"]), float(row["y"])
+        in_funnel = bool(row.get("in_funnel", is_in_funnel_zone(x, y)))
+        if in_funnel:
+            marker, s, color, alpha, edge = "*", 120, "#ffd700", 0.95, "rgba(255,215,0,0.3)"
+        else:
+            marker, s, color, alpha, edge = "o", 60, "#ffffff", 0.25, "rgba(255,255,255,0.15)"
+        pitch.scatter(x, y, s=s, marker=marker, color=color,
+                      edgecolors=edge, linewidths=0.5, ax=ax, zorder=6, alpha=alpha)
+    leg = ax.legend(
+        handles=[
+            Line2D([0], [0], marker="*", color="w", markerfacecolor="#ffd700", markersize=9, label="Funnel Action", alpha=0.95),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#ffffff", markersize=6, label="Other Action", alpha=0.30),
+        ],
+        loc="upper left", bbox_to_anchor=(0.01, 0.99),
+        frameon=True, facecolor="#1a1a2e", edgecolor="#444466",
+        fontsize=6.5, labelspacing=0.35, borderpad=0.4
+    )
+    for t in leg.get_texts():
+        t.set_color("white")
+    leg.get_frame().set_alpha(0.90)
+    _attack_arrow(fig)
+    return _save_fig(fig), fig
+
 def draw_defensive_heatmap(df):
     corridors = {
         "Left": (LANE_LEFT_MIN, FIELD_Y),
@@ -1273,7 +1323,6 @@ def draw_grade_chart(df_scores):
     y_pass_grade = df_scores["pass_grade"]
     y_def_grade = df_scores["def_grade"]
     mean_grade = y_grade.mean()
-
     pass_metrics = {
         'Pass Impact Value': 'xt_p90',
         'Progressive': 'prog_p90',
@@ -1287,10 +1336,8 @@ def draw_grade_chart(df_scores):
         'Interceptions': 'interceptions_p90',
         'Interception xT': 'int_xt_avg',
     }
-
     pass_avgs = {name: df_scores[col].mean() for name, col in pass_metrics.items()}
     def_avgs = {name: df_scores[col].mean() for name, col in def_metrics.items()}
-
     hover_texts_pass = []
     hover_texts_def = []
     for _, row in df_scores.iterrows():
@@ -1328,9 +1375,7 @@ def draw_grade_chart(df_scores):
             d_sign = ''
         hover_texts_pass.append(f"Passe: {best_pass} <span style='color:{p_color}'>{p_sign}{p_val:.1f}%</span>")
         hover_texts_def.append(f"Defesa: {best_def} <span style='color:{d_color}'>{d_sign}{d_val:.1f}%</span>")
-
     customdata = np.stack((df_scores["match"], hover_texts_pass, hover_texts_def), axis=-1)
-
     fig.add_trace(go.Scatter(
         x=x_labels, y=y_grade, customdata=customdata,
         mode='lines+markers',
@@ -1553,6 +1598,36 @@ def draw_defensive_interceptions_chart(df_scores):
     )
     return fig
 
+def draw_funnel_actions_chart(df_scores):
+    fig = go.Figure()
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
+    y = df_scores["funnel_p90"]
+    mean_val = y.mean()
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
+        line=dict(color="#ffd700", width=3, shape='spline'),
+        marker=dict(size=8, color="#ffd700"),
+        fill='tozeroy', fillcolor='rgba(255, 215, 0, 0.05)',
+        name="Funnel Actions",
+        hovertemplate="%{customdata}<br>Funnel Actions p90: %{y:.1f}"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_val] * len(x_labels),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
+        name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
+    ))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        title=dict(text="Funnel Zone Actions p90", font=dict(size=14, color="#a0a0b5"))
+    )
+    return fig
+
 def draw_comparison_bar(title, val_first, val_last, suffix=""):
     color_last = "#10b981" if val_last >= val_first else "#E07070"
     fig = go.Figure()
@@ -1599,7 +1674,7 @@ num_matches = len(dfs_by_match)
 all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 
 # TABS & LAYOUT
-tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Developement"])
+tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Desenvolvimento"])
 
 with tab_graf:
     st.markdown("### Overall Performance Summary")
@@ -1721,6 +1796,8 @@ with tab_graf:
                 st.plotly_chart(fig_duels, use_container_width=True)
                 fig_interceptions = draw_defensive_interceptions_chart(df_def_scores)
                 st.plotly_chart(fig_interceptions, use_container_width=True)
+                fig_funnel = draw_funnel_actions_chart(df_def_scores)
+                st.plotly_chart(fig_funnel, use_container_width=True)
             else:
                 st.warning("Not enough data to generate charts.")
 
@@ -1875,7 +1952,7 @@ with tab_dash:
         st.markdown("---")
         img_def_map, fig_def_map = draw_defensive_map(df_def_game); plt.close(fig_def_map)
         img_def_hm, fig_def_hm = draw_defensive_heatmap(df_def_game); plt.close(fig_def_hm)
-        img_def_xt, fig_def_xt = draw_defensive_xt_map(df_def_game); plt.close(fig_def_xt)
+        img_funnel, fig_funnel = draw_funnel_protection_map(df_def_game); plt.close(fig_funnel)
 
         col_dm1, col_dm2, col_dm3 = st.columns(3)
         with col_dm1:
@@ -1885,8 +1962,8 @@ with tab_dash:
             st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Defensive Corridor Heatmap</div>', unsafe_allow_html=True)
             st.image(img_def_hm, use_container_width=True)
         with col_dm3:
-            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">xT Threat Map</div>', unsafe_allow_html=True)
-            st.image(img_def_xt, use_container_width=True)
+            st.markdown('<div style="text-align:center;font-weight:600;font-size:14px;margin-bottom:6px;color:#cccccc">Funnel Protection Actions</div>', unsafe_allow_html=True)
+            st.image(img_funnel, use_container_width=True)
 
         st.markdown("", unsafe_allow_html=True)
         col_ds1, col_ds2, col_ds3 = st.columns(3)
@@ -2006,7 +2083,7 @@ with tab_evo:
                 fig_int_evo = draw_comparison_bar("Interceptions p90", first_9_def["interceptions_p90"].mean(), last_9_def["interceptions_p90"].mean())
                 st.plotly_chart(fig_int_evo, use_container_width=True)
             with rd2c3:
-                fig_int_xt = draw_comparison_bar("xT per Interception", first_9_def["int_xt_avg"].mean(), last_9_def["int_xt_avg"].mean())
-                st.plotly_chart(fig_int_xt, use_container_width=True)
+                fig_funnel_evo = draw_comparison_bar("Funnel Actions p90", first_9_def["funnel_actions_p90"].mean(), last_9_def["funnel_actions_p90"].mean())
+                st.plotly_chart(fig_funnel_evo, use_container_width=True)
         else:
             st.warning("Not enough data to generate defensive evolution charts.")
