@@ -58,7 +58,7 @@ NX_XT, NY_XT = 16, 12
 D_REF, D_SCALE, BONUS_CAP = 10.0, 20.0, 0.60
 LATERAL_MIN_DIST = 12.0
 PENALTY_AREA_X = 18.0
-FUNNEL_X_EXTEND = 28.0
+FUNNEL_X_EXTEND = 15.0
 PENALTY_AREA_Y_MIN = 18.0
 PENALTY_AREA_Y_MAX = 62.0
 
@@ -135,7 +135,7 @@ def xt_value(x, y):
     return float(XT_GRID[iy, ix])
 
 def is_in_funnel_zone(x, y):
-    """Check if a defensive action is in the penalty area + 10m extended zone."""
+    """Check if a defensive action is in the penalty area + 15m extended zone."""
     return x <= FUNNEL_X_EXTEND and PENALTY_AREA_Y_MIN <= y <= PENALTY_AREA_Y_MAX
 
 # BASE PASSES
@@ -1191,15 +1191,13 @@ def draw_defensive_map(df):
     return _save_fig(fig), fig
 
 def draw_funnel_protection_map(df):
-    """Map showing defensive actions: golden stars inside funnel zone, faded white outside."""
+    """Map showing defensive actions: golden stars inside funnel zone, faded outside."""
     fig, ax, pitch = _base_pitch()
     funnel_rect = Rectangle(
         (0, PENALTY_AREA_Y_MIN), FUNNEL_X_EXTEND, PENALTY_AREA_Y_MAX - PENALTY_AREA_Y_MIN,
-        facecolor="none", edgecolor="#ffd700", lw=2.0, linestyle="--", alpha=0.8, zorder=2
+        facecolor="#ffd700", edgecolor="#ffd700", lw=1.5, linestyle="--", alpha=0.12, zorder=2
     )
     ax.add_patch(funnel_rect)
-    ax.text(FUNNEL_X_EXTEND / 2, PENALTY_AREA_Y_MAX + 2, "Funnel Zone",
-            ha="center", va="bottom", color="#ffd700", fontsize=8, fontweight="600", alpha=0.8, zorder=2)
     for _, row in df.iterrows():
         x, y = float(row["x"]), float(row["y"])
         in_funnel = bool(row.get("in_funnel", is_in_funnel_zone(x, y)))
@@ -1308,7 +1306,7 @@ def draw_total_passes_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1440,7 +1438,7 @@ def draw_progressive_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1470,7 +1468,7 @@ def draw_final_third_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1500,7 +1498,7 @@ def draw_xt_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1530,7 +1528,7 @@ def draw_positive_impact_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1560,7 +1558,7 @@ def draw_defensive_duels_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1590,7 +1588,7 @@ def draw_defensive_interceptions_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1620,7 +1618,7 @@ def draw_funnel_actions_chart(df_scores):
     ))
     fig.update_layout(
         template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=320, margin=dict(l=20, r=20, t=40, b=20),
+        height=290, margin=dict(l=20, r=20, t=40, b=20),
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -1674,7 +1672,7 @@ num_matches = len(dfs_by_match)
 all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 
 # TABS & LAYOUT
-tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Desenvolvimento"])
+tab_graf, tab_dash, tab_evo = st.tabs(["Charts & Analysis", "Detailed Dashboard", "Development"])
 
 with tab_graf:
     st.markdown("### Overall Performance Summary")
