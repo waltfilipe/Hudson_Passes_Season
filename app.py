@@ -1204,15 +1204,15 @@ def draw_funnel_protection_map(df):
         x, y = float(row["x"]), float(row["y"])
         in_funnel = bool(row.get("in_funnel", is_in_funnel_zone(x, y)))
         if in_funnel:
-            marker, s, color, alpha, edge = "*", 120, "#ffd700", 0.95, "rgba(255,215,0,0.3)"
+            marker, s, color, edge = "*", 120, "#ffd700", "#b8860b"
         else:
-            marker, s, color, alpha, edge = "o", 60, "#ffffff", 0.25, "rgba(255,255,255,0.15)"
+            marker, s, color, edge = "o", 60, "#888888", "#555555"
         pitch.scatter(x, y, s=s, marker=marker, color=color,
-                      edgecolors=edge, linewidths=0.5, ax=ax, zorder=6, alpha=alpha)
+                      edgecolors=edge, linewidths=0.5, ax=ax, zorder=6, alpha=0.85)
     leg = ax.legend(
         handles=[
             Line2D([0], [0], marker="*", color="w", markerfacecolor="#ffd700", markersize=9, label="Funnel Action", alpha=0.95),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="#ffffff", markersize=6, label="Other Action", alpha=0.30),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#888888", markersize=6, label="Other Action", alpha=0.50),
         ],
         loc="upper left", bbox_to_anchor=(0.01, 0.99),
         frameon=True, facecolor="#1a1a2e", edgecolor="#444466",
