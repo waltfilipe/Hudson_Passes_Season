@@ -956,9 +956,11 @@ def section_card(title, border_color, items):
         value = item[1]
         sub = item[2] if len(item) > 2 else ""
         tooltip = item[3] if len(item) > 3 else ""
-        label_attr = f' title="{tooltip}" style="font-size:12px;color:#cccccc;cursor:help;border-bottom:1px dotted #666666"' if tooltip else f' style="font-size:12px;color:#cccccc"'
         html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
-        html += f'<div{label_attr}>{label}</div>'
+        if tooltip:
+            html += f'<div style="font-size:12px;color:#cccccc" title="{tooltip}">{label}</div>'
+        else:
+            html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
         html += f'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#ffffff">{value}</div>'
         if sub:
             html += f'<div style="font-size:10px;color:#999999">{sub}</div>'
@@ -979,9 +981,11 @@ def cmp_section_card(title, border_color, items):
         disp_avg = item[4] if len(item) > 4 else str(val_avg)
         tooltip = item[5] if len(item) > 5 else ""
         arrow = _arrow_html(float(val_game), float(val_avg))
-        label_attr = f' title="{tooltip}" style="font-size:12px;color:#cccccc;cursor:help;border-bottom:1px dotted #666666"' if tooltip else f' style="font-size:12px;color:#cccccc"'
         html += f'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'
-        html += f'<div{label_attr}>{label}</div>'
+        if tooltip:
+            html += f'<div style="font-size:12px;color:#cccccc" title="{tooltip}">{label}</div>'
+        else:
+            html += f'<div style="font-size:12px;color:#cccccc">{label}</div>'
         html += f'<div style="text-align:right"><div>{disp_game}{arrow}</div>'
         html += f'<div style="font-size:10px;color:#999999">AVG: {disp_avg}</div>'
         html += '</div></div>'
@@ -1228,7 +1232,7 @@ def draw_total_passes_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_val] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1299,7 +1303,7 @@ def draw_grade_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_grade] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_grade:.1f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1329,7 +1333,7 @@ def draw_progressive_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_prog] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_prog:.1f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1359,7 +1363,7 @@ def draw_final_third_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_f3] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_f3:.1f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1389,7 +1393,7 @@ def draw_xt_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_xt] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_xt:.2f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1419,7 +1423,7 @@ def draw_defensive_duels_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_val] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1449,7 +1453,7 @@ def draw_defensive_interceptions_chart(df_scores):
     ))
     fig.add_trace(go.Scatter(
         x=x_labels, y=[mean_val] * len(x_labels),
-        mode='lines', line=dict(color="#ffd700", width=1.5, dash='dash'),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
         name=f"Avg: {mean_val:.1f}", hoverinfo='skip'
     ))
     fig.update_layout(
@@ -1486,13 +1490,24 @@ def draw_comparison_bar(title, val_first, val_last, suffix=""):
     return fig
 
 # SIDEBAR
-st.sidebar.title("Stats Dashboard")
-st.sidebar.markdown("### 2026 Matches")
-st.sidebar.markdown("#### Hudson Cicala")
+st.sidebar.markdown("""
+<div style="text-align:center;padding:8px 0 4px 0">
+    <div style="font-size:20px;font-weight:300;letter-spacing:2px;color:#a0a0b5;text-transform:uppercase">Stats</div>
+    <div style="font-size:13px;font-weight:600;color:#ffffff;margin-top:-2px">Dashboard</div>
+</div>
+<div style="border-bottom:1px solid #2a2a3e;margin:6px 0 12px 0"></div>
+<div style="font-size:11px;font-weight:500;letter-spacing:1px;color:#6b6b80;text-transform:uppercase;margin:0 10px 6px 10px">2026 Season</div>
+<div style="font-size:16px;font-weight:600;color:#e0e0f0;margin:0 10px 12px 10px">Hudson Cicala</div>
+""", unsafe_allow_html=True)
+
 img_path = "Captura de tela 2026-06-02 154425.png"
 if os.path.exists(img_path):
     st.sidebar.image(img_path, use_container_width=True)
-st.sidebar.markdown("---")
+
+st.sidebar.markdown("""
+<div style="border-bottom:1px solid #2a2a3e;margin:16px 0 8px 0"></div>
+""", unsafe_allow_html=True)
+
 num_matches = len(dfs_by_match)
 all_match_stats = [compute_stats(dfs_by_match[m], m) for m in dfs_by_match]
 
@@ -1720,7 +1735,6 @@ with tab_dash:
             df_def_game_raw = defensive_dfs_by_match[selected_def_match].copy()
             def_match_name_for_stats = selected_def_match
 
-        # Apply type filter
         if def_type_filter == "Duels Only":
             df_def_game = df_def_game_raw[df_def_game_raw["is_duel"]].copy()
         elif def_type_filter == "Interceptions Only":
