@@ -954,6 +954,7 @@ def section_card(title, border_color, items):
     bd = _hex_to_rgba(border_color, 0.30)
     html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
     html += f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
+    html += f'<div style="opacity:0.88">'
     for idx, item in enumerate(items):
         label = item[0]
         value = item[1]
@@ -974,7 +975,7 @@ def section_card(title, border_color, items):
         if sub:
             html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">{sub}</div>'
         html += '</div>'
-    html += '</div>'
+    html += '</div></div>'
     st.markdown(html, unsafe_allow_html=True)
 
 def cmp_section_card(title, border_color, items):
@@ -982,6 +983,7 @@ def cmp_section_card(title, border_color, items):
     bd = _hex_to_rgba(border_color, 0.30)
     html = f'<div style="background:{bg};border:1px solid {bd};border-radius:10px;padding:14px;margin-bottom:8px">'
     html += f'<div style="font-size:15px;font-weight:800;color:#ffffff;margin-bottom:10px;letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px">{title}</div>'
+    html += f'<div style="opacity:0.88">'
     for idx, item in enumerate(items):
         label = item[0]
         val_game = item[1]
@@ -1000,11 +1002,13 @@ def cmp_section_card(title, border_color, items):
             html += f'<div>{label_html}</div>'
         else:
             html += f'<div style="font-size:14px;color:#ffffff;font-weight:600">{label}</div>'
-        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2;text-align:right">{disp_game}{arrow}</div>'
+        html += f'<div style="text-align:right">'
+        html += f'<div style="font-size:12px;color:#ffffff;opacity:0.65;margin-bottom:1px">AVG: {disp_avg}</div>'
+        html += f'<div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1.2">{disp_game}{arrow}</div>'
         html += '</div>'
-        html += f'<div style="font-size:11px;color:#ffffff;opacity:0.55;margin-top:2px">AVG: {disp_avg}</div>'
         html += '</div>'
-    html += '</div>'
+        html += '</div>'
+    html += '</div></div>'
     st.markdown(html, unsafe_allow_html=True)
 
 # DRAW HELPERS (PITCH)
@@ -1387,36 +1391,6 @@ def draw_final_third_chart(df_scores):
         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        title=dict(text="Progressive Passes", font=dict(size=14, color="#a0a0b5"))
-    )
-    return fig
-
-def draw_final_third_chart(df_scores):
-    fig = go.Figure()
-    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
-    y = df_scores["f3_p90"]
-    mean_f3 = y.mean()
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=y,
-        customdata=df_scores["match"],
-        mode='lines+markers',
-        line=dict(color="#8b5cf6", width=3, shape='spline'),
-        marker=dict(size=8, color="#8b5cf6"),
-        fill='tozeroy', fillcolor='rgba(139, 92, 246, 0.05)',
-        name="Final Third Passes",
-        hovertemplate="%{customdata}<br>Final Third: %{y:.1f}"
-    ))
-    fig.add_trace(go.Scatter(
-        x=x_labels, y=[mean_f3] * len(x_labels),
-        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
-        name=f"Avg: {mean_f3:.1f}", hoverinfo='skip'
-    ))
-    fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
-        height=350, margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
-        xaxis=dict(showgrid=False, zeroline=False),
-        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Final Third Passes", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
@@ -1448,6 +1422,36 @@ def draw_xt_chart(df_scores):
         xaxis=dict(showgrid=False, zeroline=False),
         showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         title=dict(text="Pass Impact Value", font=dict(size=14, color="#a0a0b5"))
+    )
+    return fig
+
+def draw_positive_impact_chart(df_scores):
+    fig = go.Figure()
+    x_labels = [f"Match {i+1}" for i in range(len(df_scores))]
+    y = df_scores["pos_pct"]
+    mean_val = y.mean()
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=y,
+        customdata=df_scores["match"],
+        mode='lines+markers',
+        line=dict(color="#f43f5e", width=3, shape='spline'),
+        marker=dict(size=8, color="#f43f5e"),
+        fill='tozeroy', fillcolor='rgba(244, 63, 94, 0.05)',
+        name="% Positive Impact",
+        hovertemplate="%{customdata}<br>% Positive Impact: %{y:.1f}%"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_labels, y=[mean_val] * len(x_labels),
+        mode='lines', line=dict(color="rgba(255, 215, 0, 0.25)", width=1.5, dash='dash'),
+        name=f"Avg: {mean_val:.1f}%", hoverinfo='skip'
+    ))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#1a1a2e", plot_bgcolor="#1a1a2e",
+        height=350, margin=dict(l=20, r=20, t=40, b=20),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+        xaxis=dict(showgrid=False, zeroline=False),
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        title=dict(text="% Positive Impact", font=dict(size=14, color="#a0a0b5"))
     )
     return fig
 
@@ -1669,6 +1673,8 @@ with tab_graf:
             st.plotly_chart(fig_f3, use_container_width=True)
             fig_xt = draw_xt_chart(df_scores)
             st.plotly_chart(fig_xt, use_container_width=True)
+            fig_pos = draw_positive_impact_chart(df_scores)
+            st.plotly_chart(fig_pos, use_container_width=True)
 
             df_def_scores = compute_defensive_match_scores(defensive_dfs_by_match)
             if not df_def_scores.empty:
@@ -1727,7 +1733,7 @@ with tab_dash:
             s_avg = s_game.copy()
 
         if selected_match == "All Matches":
-            st.caption("ℹ️ \"All Matches\" agrega todos os eventos e normaliza pelo total de minutos somados (média ponderada por tempo). O \"AVG\" é a média aritmética dos valores p90 de cada partida individual. Por isso os valores diferem.")
+            s_game = s_avg.copy()
 
         st.markdown("---")
         img_pm_game, fig_pm_game = draw_pass_map(df_game); plt.close(fig_pm_game)
@@ -1805,7 +1811,7 @@ with tab_dash:
             d_avg = d_game.copy()
 
         if selected_def_match == "All Matches":
-            st.caption("ℹ️ \"All Matches\" agrega todos os eventos e normaliza pelo total de minutos somados (média ponderada por tempo). O \"AVG\" é a média aritmética dos valores p90 de cada partida individual. Por isso os valores diferem.")
+            d_game = d_avg.copy()
 
         st.markdown("---")
         img_def_map, fig_def_map = draw_defensive_map(df_def_game); plt.close(fig_def_map)
